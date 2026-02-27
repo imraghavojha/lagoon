@@ -14,7 +14,7 @@ pkgs.mkShell {
   buildInputs = with pkgs; [
     bash
     coreutils
-    {{PACKAGES}}
+{{PACKAGES}}
   ];
 }
 `

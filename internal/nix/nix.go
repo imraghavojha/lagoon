@@ -1,6 +1,7 @@
 package nix
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -43,24 +44,37 @@ var missingAttrRe = regexp.MustCompile(`attribute '([^']+)' missing`)
 
 // Resolve runs nix-shell and grabs the bash path, env path, and PATH value.
 // we run 'which bash && which env && echo $PATH' inside the nix shell to get them.
+// nix's build status messages go to stderr — we only parse stdout so they don't mix in.
 func Resolve(shellNixPath string) (*ResolvedEnv, error) {
+	var stderr bytes.Buffer
 	cmd := exec.Command("nix-shell", shellNixPath, "--run",
 		"which bash && which env && echo $PATH")
-	out, err := cmd.CombinedOutput()
+	cmd.Stderr = &stderr
 
+	stdout, err := cmd.Output()
 	if err != nil {
-		return nil, parseNixError(out)
+		return nil, parseNixError(stderr.Bytes())
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	lines := strings.Split(strings.TrimSpace(string(stdout)), "\n")
 	if len(lines) < 3 {
-		return nil, fmt.Errorf("nix-shell output was unexpected:\n%s", string(out))
+		return nil, fmt.Errorf("nix-shell output was unexpected:\n%s", string(stdout))
+	}
+
+	rawPath := strings.TrimSpace(lines[len(lines)-1])
+
+	// only keep nix store paths — host paths like /usr/bin leak state into the sandbox
+	var nixParts []string
+	for _, p := range strings.Split(rawPath, ":") {
+		if strings.HasPrefix(p, "/nix/store") {
+			nixParts = append(nixParts, p)
+		}
 	}
 
 	return &ResolvedEnv{
 		BashPath: strings.TrimSpace(lines[0]),
 		EnvPath:  strings.TrimSpace(lines[1]),
-		PATH:     strings.TrimSpace(lines[len(lines)-1]), // last line is PATH, avoid any extra output
+		PATH:     strings.Join(nixParts, ":"),
 	}, nil
 }
 
