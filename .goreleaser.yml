@@ -11,7 +11,7 @@ builds:
       - amd64
 
 archives:
-  - format: tar.gz
+  - formats: [tar.gz]
     name_template: "lagoon_{{ .Os }}_{{ .Arch }}"
 
 changelog:
