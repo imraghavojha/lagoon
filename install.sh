@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # installs the lagoon binary from github releases
-# usage: curl -fsSL https://raw.githubusercontent.com/kuldeepojha/lagoon/main/install.sh | bash
+# usage: curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh | bash
 set -e
 
-REPO="kuldeepojha/lagoon"
+REPO="imraghavojha/lagoon"
 BIN="lagoon"
 
 # lagoon requires bwrap which is linux-only

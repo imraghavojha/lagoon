@@ -1,6 +1,6 @@
 package main
 
-import "github.com/kuldeepojha/lagoon/cmd"
+import "github.com/imraghavojha/lagoon/cmd"
 
 func main() {
 	cmd.Execute()

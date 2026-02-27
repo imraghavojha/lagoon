@@ -6,8 +6,8 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/kuldeepojha/lagoon/internal/config"
-	"github.com/kuldeepojha/lagoon/internal/nix"
+	"github.com/imraghavojha/lagoon/internal/config"
+	"github.com/imraghavojha/lagoon/internal/nix"
 )
 
 // Enter replaces the current process with a bwrap sandbox.

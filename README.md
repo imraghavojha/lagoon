@@ -30,7 +30,7 @@ sudo apt install bubblewrap
 sh <(curl -L https://nixos.org/nix/install) --no-daemon && source ~/.nix-profile/etc/profile.d/nix.sh
 
 # install lagoon
-curl -fsSL https://raw.githubusercontent.com/kuldeepojha/lagoon/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh | bash
 ```
 
 ---
@@ -77,7 +77,7 @@ first run on arm may take 10–60 minutes if packages aren't in the binary cache
 ## build from source
 
 ```bash
-git clone https://github.com/kuldeepojha/lagoon
+git clone https://github.com/imraghavojha/lagoon
 cd lagoon
 go build -o lagoon .
 ```

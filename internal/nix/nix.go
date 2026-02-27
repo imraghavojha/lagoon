@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/kuldeepojha/lagoon/internal/config"
+	"github.com/imraghavojha/lagoon/internal/config"
 )
 
 // ResolvedEnv holds the paths we capture from running nix-shell

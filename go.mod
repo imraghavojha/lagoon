@@ -1,4 +1,4 @@
-module github.com/kuldeepojha/lagoon
+module github.com/imraghavojha/lagoon
 
 go 1.21
 

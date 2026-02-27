@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
-	"github.com/kuldeepojha/lagoon/internal/config"
+	"github.com/imraghavojha/lagoon/internal/config"
 	"github.com/spf13/cobra"
 )
 

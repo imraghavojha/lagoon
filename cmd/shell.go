@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/kuldeepojha/lagoon/internal/config"
-	"github.com/kuldeepojha/lagoon/internal/nix"
-	"github.com/kuldeepojha/lagoon/internal/preflight"
-	"github.com/kuldeepojha/lagoon/internal/sandbox"
+	"github.com/imraghavojha/lagoon/internal/config"
+	"github.com/imraghavojha/lagoon/internal/nix"
+	"github.com/imraghavojha/lagoon/internal/preflight"
+	"github.com/imraghavojha/lagoon/internal/sandbox"
 	"github.com/spf13/cobra"
 )
 
