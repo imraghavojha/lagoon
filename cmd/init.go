@@ -1,11 +1,12 @@
 package cmd
 
 import (
-	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/huh"
 	"github.com/kuldeepojha/lagoon/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -17,36 +18,56 @@ var initCmd = &cobra.Command{
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
-	scanner := bufio.NewScanner(os.Stdin)
-
-	// check if config already exists and ask before overwriting
+	// overwrite guard — ask before clobbering an existing config
 	if _, err := os.Stat(config.Filename); err == nil {
-		fmt.Printf("lagoon.toml already exists. overwrite? (y/N) ")
-		scanner.Scan()
-		if strings.ToLower(strings.TrimSpace(scanner.Text())) != "y" {
+		var overwrite bool
+		if err := huh.NewConfirm().
+			Title("lagoon.toml already exists. overwrite?").
+			Value(&overwrite).
+			Run(); err != nil {
+			return err
+		}
+		if !overwrite {
 			fmt.Println("not overwriting. exiting.")
 			return nil
 		}
 	}
 
 	fmt.Println()
-	fmt.Println("lagoon: no lagoon.toml found.")
-	fmt.Println()
 	fmt.Println("tip: search for package names at https://search.nixos.org/packages")
 	fmt.Println()
-	fmt.Printf("what packages do you need? (space-separated)\n> ")
 
-	scanner.Scan()
-	raw := strings.TrimSpace(scanner.Text())
-	if raw == "" {
-		return fmt.Errorf("no packages specified")
+	var rawPackages string
+	var network bool
+
+	// one form, two fields — packages and network toggle
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("packages (space-separated)").
+				Placeholder("python311 ffmpeg cowsay").
+				Value(&rawPackages).
+				Validate(func(s string) error {
+					if strings.TrimSpace(s) == "" {
+						return errors.New("at least one package is required")
+					}
+					return nil
+				}),
+			huh.NewConfirm().
+				Title("network access inside sandbox?").
+				Affirmative("yes").
+				Negative("no").
+				Value(&network),
+		),
+	)
+
+	if err := form.Run(); err != nil {
+		return err
 	}
-	packages := strings.Fields(raw)
 
-	fmt.Printf("\nuse network access inside sandbox? (y/N)\n> ")
-	scanner.Scan()
+	packages := strings.Fields(rawPackages)
 	profile := "minimal"
-	if strings.ToLower(strings.TrimSpace(scanner.Text())) == "y" {
+	if network {
 		profile = "network"
 	}
 

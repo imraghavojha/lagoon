@@ -1,0 +1,21 @@
+version: 2
+
+builds:
+  - binary: lagoon
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - arm64
+      - amd64
+
+archives:
+  - format: tar.gz
+    name_template: "lagoon_{{ .Os }}_{{ .Arch }}"
+
+changelog:
+  disable: true
+
+checksum:
+  disable: true
