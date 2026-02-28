@@ -71,6 +71,27 @@ func runInit(cmd *cobra.Command, args []string) error {
 		profile = "network"
 	}
 
+	// show preview so users can catch typos before the file is written
+	fmt.Println()
+	fmt.Printf("  packages:  %s\n", strings.Join(packages, ", "))
+	fmt.Printf("  nixpkgs:   %s (pinned)\n", config.DefaultCommit[:8])
+	fmt.Printf("  network:   %s\n", map[bool]string{true: "on", false: "off"}[network])
+	fmt.Println()
+
+	var confirm bool
+	if err := huh.NewConfirm().
+		Title("write lagoon.toml?").
+		Affirmative("yes").
+		Negative("no").
+		Value(&confirm).
+		Run(); err != nil {
+		return err
+	}
+	if !confirm {
+		fmt.Println("  not written.")
+		return nil
+	}
+
 	cfg := &config.Config{
 		Packages:      packages,
 		NixpkgsCommit: config.DefaultCommit,
@@ -82,14 +103,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("writing config: %w", err)
 	}
 
-	fmt.Println()
 	fmt.Println(ok("✓") + " created lagoon.toml")
-	fmt.Printf("  packages: %s\n", strings.Join(packages, ", "))
-	fmt.Printf("  nixpkgs: pinned to %s (default)\n", config.DefaultCommit[:7])
-	fmt.Printf("  profile: %s\n", profile)
-	fmt.Println()
-	fmt.Println(warn("!") + " remember to commit lagoon.toml to version control:")
-	fmt.Println("    git add lagoon.toml && git commit -m \"add lagoon environment\"")
+	fmt.Println(warn("!") + " remember to commit it:  git add lagoon.toml && git commit")
 
 	return nil
 }
