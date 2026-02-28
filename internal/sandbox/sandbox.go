@@ -13,18 +13,29 @@ import (
 
 // Enter replaces the current process with a bwrap sandbox.
 // cmd is a one-off command to run; empty string opens an interactive shell.
+// memory limits sandbox via systemd-run (e.g. "512m", "1g"); empty = no limit.
 // extraEnvs are additional KEY=VALUE pairs injected into the sandbox.
-func Enter(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd string, extraEnvs []string) error {
+func Enter(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd, memory string, extraEnvs []string) error {
 	bwrap, err := exec.LookPath("bwrap")
 	if err != nil {
 		return fmt.Errorf("bwrap not found: %w", err)
 	}
 
-	args := buildArgs(cfg, env, projectPath, cmd, extraEnvs)
+	bwrapArgs := buildArgs(cfg, env, projectPath, cmd, extraEnvs)
+
+	if memory != "" {
+		sysRun, err := exec.LookPath("systemd-run")
+		if err != nil {
+			return fmt.Errorf("--memory requires systemd-run (not found on this system): %w", err)
+		}
+		// wrap bwrap in a transient systemd scope with the memory limit
+		argv := append([]string{"systemd-run", "--scope", "-p", "MemoryMax=" + strings.ToUpper(memory), "--", bwrap}, bwrapArgs...)
+		return syscall.Exec(sysRun, argv, nil)
+	}
 
 	// sandbox env is set via --clearenv + --setenv inside buildArgs.
 	// bwrap's own process env (third arg) doesn't affect the sandboxed shell.
-	return syscall.Exec(bwrap, append([]string{"bwrap"}, args...), nil)
+	return syscall.Exec(bwrap, append([]string{"bwrap"}, bwrapArgs...), nil)
 }
 
 // buildArgs constructs the full bwrap argument list.

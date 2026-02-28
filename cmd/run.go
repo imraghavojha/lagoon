@@ -15,3 +15,7 @@ var runCmd = &cobra.Command{
 		return runShell(cmd, nil)
 	},
 }
+
+func init() {
+	runCmd.Flags().StringVarP(&memFlag, "memory", "m", "", "limit sandbox memory via systemd-run (e.g. 512m, 1g)")
+}

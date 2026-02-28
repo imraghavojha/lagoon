@@ -54,16 +54,15 @@ var missingAttrRe = regexp.MustCompile(`attribute '([^']+)' missing`)
 var nixKeywords = []string{"fetching", "downloading", "building", "copying", "error", "warning"}
 
 // Resolve runs nix-shell and grabs the bash path, env path, and PATH value.
-// nix stderr is filtered and streamed so users see meaningful progress lines
-// instead of a frozen terminal during long first-run builds.
-func Resolve(shellNixPath string) (*ResolvedEnv, error) {
+// if progress is non-nil, matching stderr lines are sent to it; caller closes after use.
+// if progress is nil, lines are printed directly (legacy fallback).
+func Resolve(shellNixPath string, progress chan<- string) (*ResolvedEnv, error) {
 	var stderrBuf bytes.Buffer
 	pr, pw := io.Pipe()
 	cmd := exec.Command("nix-shell", shellNixPath, "--run",
 		"which bash && which env && echo $PATH")
 	cmd.Stderr = io.MultiWriter(&stderrBuf, pw)
 
-	// stream matching nix stderr lines dimmed to stdout
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -73,7 +72,14 @@ func Resolve(shellNixPath string) (*ResolvedEnv, error) {
 			lower := strings.ToLower(line)
 			for _, kw := range nixKeywords {
 				if strings.Contains(lower, kw) {
-					fmt.Printf("\033[2m  nix │ %s\033[0m\n", line)
+					if progress != nil {
+						select {
+						case progress <- line:
+						default:
+						}
+					} else {
+						fmt.Printf("\033[2m  nix │ %s\033[0m\n", line)
+					}
 					break
 				}
 			}
