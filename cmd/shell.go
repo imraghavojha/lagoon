@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/charmbracelet/huh"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/imraghavojha/lagoon/internal/config"
 	"github.com/imraghavojha/lagoon/internal/nix"
 	"github.com/imraghavojha/lagoon/internal/preflight"
@@ -18,6 +20,7 @@ import (
 var (
 	cmdFlag  string
 	envFlags []string
+	memFlag  string
 )
 
 var shellCmd = &cobra.Command{
@@ -29,6 +32,7 @@ var shellCmd = &cobra.Command{
 func init() {
 	shellCmd.Flags().StringVar(&cmdFlag, "cmd", "", "run a one-off command instead of an interactive shell")
 	shellCmd.Flags().StringArrayVarP(&envFlags, "env", "e", nil, "set env var in sandbox (KEY=VALUE)")
+	shellCmd.Flags().StringVarP(&memFlag, "memory", "m", "", "limit sandbox memory via systemd-run (e.g. 512m, 1g)")
 }
 
 func runShell(cmd *cobra.Command, args []string) error {
@@ -38,11 +42,26 @@ func runShell(cmd *cobra.Command, args []string) error {
 		os.Exit(1)
 	}
 
-	// load lagoon.toml from current directory
+	// load lagoon.toml — offer to run init inline if it's missing
 	cfg, err := config.Read(config.Filename)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, fail("✗")+" no lagoon.toml found. run 'lagoon init' first.")
-		os.Exit(1)
+		var doInit bool
+		if herr := huh.NewConfirm().
+			Title("No lagoon.toml found. Run lagoon init now?").
+			Affirmative("yes").
+			Negative("no").
+			Value(&doInit).
+			Run(); herr != nil || !doInit {
+			fmt.Fprintln(os.Stderr, fail("✗")+" no lagoon.toml. run 'lagoon init' first.")
+			os.Exit(1)
+		}
+		if err := runInit(nil, nil); err != nil {
+			return err
+		}
+		cfg, err = config.Read(config.Filename)
+		if err != nil {
+			return fmt.Errorf("reading config after init: %w", err)
+		}
 	}
 
 	// figure out where to put the generated shell.nix
@@ -67,28 +86,49 @@ func runShell(cmd *cobra.Command, args []string) error {
 			fmt.Println(warn("!") + " arm: first run may take 10-60 min to compile packages")
 			fmt.Println("  this only happens once. subsequent runs start in under a second.")
 		}
-		fmt.Println(warn("!") + " building environment...")
-		resolved, err = nix.Resolve(shellNixPath)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err.Error())
+
+		// run nix-shell with a bubbletea spinner showing live progress
+		progressCh := make(chan string, 50)
+		resultCh := make(chan struct {
+			env *nix.ResolvedEnv
+			err error
+		}, 1)
+		go func() {
+			env, err := nix.Resolve(shellNixPath, progressCh)
+			close(progressCh)
+			resultCh <- struct {
+				env *nix.ResolvedEnv
+				err error
+			}{env, err}
+		}()
+		tea.NewProgram(newBuildModel(progressCh)).Run()
+		r := <-resultCh
+		if r.err != nil {
+			fmt.Fprintln(os.Stderr, r.err.Error())
 			os.Exit(1)
 		}
+		resolved = r.env
 		_ = nix.SaveCache(cacheDir, resolved, sum)
 	} else {
 		fmt.Println(ok("✓") + " environment ready")
 	}
 
-	// print banner so users know they're inside the sandbox
+	// banner so users know they're inside the sandbox
 	netStr := "off"
 	if cfg.Profile == "network" {
 		netStr = "on"
 	}
-	fmt.Printf("\n%s │ %s │ /workspace │ network: %s\n",
-		ok("lagoon"), strings.Join(cfg.Packages, "  "), netStr)
-	fmt.Println("  type 'exit' to return to host shell\n")
+	memStr := ""
+	if memFlag != "" {
+		memStr = " │ mem: " + strings.ToUpper(memFlag)
+	}
+	fmt.Printf("\n%s │ %s │ /workspace │ network: %s%s\n",
+		ok("lagoon"), strings.Join(cfg.Packages, "  "), netStr, memStr)
+	fmt.Println("  type 'exit' to return to host shell")
+	fmt.Println()
 
 	// replace this process with bwrap — no cleanup needed on exit
-	return sandbox.Enter(cfg, resolved, absPath, cmdFlag, envFlags)
+	return sandbox.Enter(cfg, resolved, absPath, cmdFlag, memFlag, envFlags)
 }
 
 // projectCacheDir returns ~/.cache/lagoon/<8-char hash of project path>

@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -33,39 +32,26 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	fmt.Println()
-	fmt.Println("tip: search for package names at https://search.nixos.org/packages")
-	fmt.Println()
+	// live nixpkgs search TUI — user types to filter, enter to add, esc when done
+	packages, err := RunPackageSearch()
+	if err != nil {
+		return err
+	}
+	if len(packages) == 0 {
+		fmt.Println("no packages selected. run 'lagoon init' to try again.")
+		return nil
+	}
 
-	var rawPackages string
 	var network bool
-
-	// one form, two fields — packages and network toggle
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title("packages (space-separated)").
-				Placeholder("python311 ffmpeg cowsay").
-				Value(&rawPackages).
-				Validate(func(s string) error {
-					if strings.TrimSpace(s) == "" {
-						return errors.New("at least one package is required")
-					}
-					return nil
-				}),
-			huh.NewConfirm().
-				Title("network access inside sandbox?").
-				Affirmative("yes").
-				Negative("no").
-				Value(&network),
-		),
-	)
-
-	if err := form.Run(); err != nil {
+	if err := huh.NewConfirm().
+		Title("network access inside sandbox?").
+		Affirmative("yes").
+		Negative("no").
+		Value(&network).
+		Run(); err != nil {
 		return err
 	}
 
-	packages := strings.Fields(rawPackages)
 	profile := "minimal"
 	if network {
 		profile = "network"
