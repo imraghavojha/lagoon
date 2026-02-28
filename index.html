@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>lagoon — reproducible sandboxed shells</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Fraunces:ital,wght@0,300;0,700;1,300;1,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f7f6f2;
+    --bg2: #edecea;
+    --fg: #111;
+    --fg2: #666;
+    --accent: #2de08a;
+    --accent-dim: rgba(45,224,138,0.13);
+    --accent2: #0a3d2e;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Cabinet Grotesk', sans-serif;
+    --serif: 'Fraunces', serif;
+    --card: #fff;
+    --border: rgba(0,0,0,0.09);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* NAV */
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 56px;
+    height: 62px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(247,246,242,0.92);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: var(--serif);
+    font-size: 1.65rem;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .logo span { color: var(--accent); }
+  .nav-links { display: flex; align-items: center; gap: 28px; list-style: none; }
+  .nav-links a { font-size: 0.9rem; font-weight: 500; color: var(--fg2); text-decoration: none; transition: color 0.15s; }
+  .nav-links a:hover { color: var(--fg); }
+  .nav-cta { background: var(--fg) !important; color: var(--bg) !important; padding: 8px 20px !important; border-radius: 100px !important; font-weight: 700 !important; }
+
+  /* HERO */
+  .hero {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 56px;
+    align-items: center;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 96px 56px 88px;
+  }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent2);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    padding: 5px 14px;
+    border-radius: 100px;
+    margin-bottom: 26px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .hero-badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: blink 2s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+  h1 {
+    font-family: var(--sans);
+    font-size: clamp(2.6rem, 4.5vw, 4rem);
+    font-weight: 900;
+    line-height: 1.06;
+    letter-spacing: -0.035em;
+    margin-bottom: 22px;
+  }
+  h1 em { font-style: italic; font-family: var(--serif); font-weight: 300; }
+
+  .hero-sub { font-size: 1.08rem; color: var(--fg2); max-width: 440px; margin-bottom: 38px; line-height: 1.75; }
+
+  .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 13px 26px;
+    border-radius: 100px;
+    font-family: var(--sans);
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    transition: all 0.18s;
+  }
+  .btn-primary { background: var(--accent); color: var(--accent2); }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(45,224,138,0.38); }
+  .btn-secondary { background: var(--fg); color: var(--bg); }
+  .btn-secondary:hover { opacity: 0.84; }
+
+  /* BUBBLETEA TUI */
+  .tui {
+    background: #0c0e14;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 32px 90px rgba(0,0,0,0.22);
+    border: 1px solid rgba(255,255,255,0.06);
+    font-family: var(--mono);
+    font-size: 0.83rem;
+  }
+  .tui-bar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 13px 18px;
+    background: #161922;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #febc2e; }
+  .dot-g { background: #28c840; }
+  .tui-title { font-family: var(--mono); font-size: 0.72rem; color: #555; margin-left: 6px; }
+  .tui-body { padding: 22px 26px 26px; line-height: 2; }
+
+  .huh-title { color: #cdd6f4; font-weight: 500; margin-bottom: 4px; }
+  .huh-hint  { color: #6c7086; font-size: 0.76rem; margin-bottom: 12px; }
+  .huh-input {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #1e2030;
+    border: 1px solid #313244;
+    border-radius: 6px;
+    padding: 9px 14px;
+    margin-bottom: 18px;
+  }
+  .huh-cursor { color: var(--accent); animation: cur 1.1s step-end infinite; }
+  @keyframes cur { 0%,100%{opacity:1} 50%{opacity:0} }
+  .huh-sep { color: #313244; margin: 12px 0 14px; letter-spacing: 0.05em; }
+  .huh-banner {
+    border-left: 3px solid var(--accent);
+    padding: 9px 14px;
+    background: rgba(45,224,138,0.06);
+    border-radius: 0 6px 6px 0;
+    margin-top: 12px;
+    color: #a6e3a1;
+    font-size: 0.8rem;
+    line-height: 1.8;
+  }
+
+  /* INSTALL */
+  .install-strip {
+    background: var(--fg);
+    color: var(--bg);
+    text-align: center;
+    padding: 48px 24px;
+  }
+  .install-strip h2 {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0.4;
+    margin-bottom: 18px;
+    font-family: var(--mono);
+  }
+  .install-cmd {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 14px 24px;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    color: var(--accent);
+    max-width: 100%;
+    word-break: break-all;
+  }
+  .install-cmd span {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+  }
+  .copy-btn {
+    background: none;
+    border: 1px solid #444;
+    border-radius: 6px;
+    color: #888;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* SECTIONS */
+  .section { max-width: 1240px; margin: 0 auto; padding: 100px 56px; }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    background: var(--accent-dim);
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 100px;
+    margin-bottom: 22px;
+  }
+  h2 { font-size: clamp(2rem, 3.5vw, 2.9rem); font-weight: 900; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 16px; }
+  .section-sub { font-size: 1.05rem; color: var(--fg2); max-width: 540px; line-height: 1.75; }
+
+  /* FEATURE GRID */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    margin-top: 60px;
+    border: 1px solid var(--border);
+  }
+  .feature-card {
+    background: var(--card);
+    padding: 44px 40px;
+    position: relative;
+    transition: background 0.2s;
+  }
+  .feature-card:hover { background: #fafaf8; }
+  .feature-card h3 { font-size: 1.05rem; font-weight: 800; margin-bottom: 10px; letter-spacing: -0.02em; }
+  .feature-card p { font-size: 0.875rem; color: var(--fg2); line-height: 1.7; }
+  /* small accent mark at top */
+  .feature-card::before {
+    content: '';
+    display: block;
+    width: 24px;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+    margin-bottom: 24px;
+  }
+  .feature-card:nth-child(2)::before { background: #89b4fa; }
+  .feature-card:nth-child(3)::before { background: #cba6f7; }
+  .feature-card:nth-child(4)::before { background: #f38ba8; }
+  .feature-card:nth-child(5)::before { background: var(--accent); opacity: 0.5; }
+  .feature-card:nth-child(6)::before { background: #febc2e; opacity: 0.8; }
+
+  /* TECH STACK */
+  .stack-section {
+    text-align: center;
+    padding: 72px 56px;
+    background: #fff;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .stack-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--fg2);
+    margin-bottom: 40px;
+  }
+  .stack-label::before, .stack-label::after {
+    content: '';
+    flex: 1;
+    max-width: 120px;
+    height: 1px;
+    background: var(--border);
+  }
+  .stack-icons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .stack-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .stack-bubble {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: #f4f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    border: 1px solid rgba(0,0,0,0.07);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .stack-icon:hover .stack-bubble { transform: translateY(-5px); box-shadow: 0 14px 36px rgba(0,0,0,0.1); }
+  .stack-name { font-family: var(--mono); font-size: 0.7rem; color: var(--fg2); letter-spacing: 0.03em; }
+
+  /* COMPARISON CHART */
+  .comparison-section { background: #0c0e14; padding: 96px 0; }
+  .comparison-inner { max-width: 1240px; margin: 0 auto; padding: 0 56px; }
+  .comparison-inner .section-label { color: var(--accent); background: rgba(45,224,138,0.08); }
+  .comparison-inner h2 { color: #cdd6f4; }
+  .comparison-inner .section-sub { color: #6c7086; }
+
+  .chart-wrapper {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 20px;
+    padding: 44px;
+    margin-top: 56px;
+  }
+  .chart-meta { margin-bottom: 40px; }
+  .chart-meta-title { font-family: var(--mono); font-size: 0.75rem; color: #45475a; margin-bottom: 4px; }
+  .chart-meta-sub { font-size: 1.1rem; font-weight: 700; color: #cdd6f4; }
+
+  /* horizontal bars — lower = better */
+  .hbar-chart { display: flex; flex-direction: column; gap: 20px; }
+  .hbar-row {
+    display: grid;
+    grid-template-columns: 150px 1fr 72px;
+    align-items: center;
+    gap: 18px;
+  }
+  .hbar-label { font-size: 0.88rem; font-weight: 700; color: #cdd6f4; text-align: right; }
+  .hbar-sublabel { font-family: var(--mono); font-size: 0.68rem; color: #45475a; display: block; font-weight: 400; }
+  .hbar-track { background: rgba(255,255,255,0.04); border-radius: 100px; height: 38px; overflow: hidden; }
+  .hbar-fill {
+    height: 100%;
+    border-radius: 100px;
+    display: flex;
+    align-items: center;
+    padding-left: 16px;
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    font-weight: 600;
+    transform: scaleX(0);
+    transform-origin: left;
+    animation: hbarGrow 0.9s cubic-bezier(0.34,1.2,0.64,1) forwards;
+  }
+  .hbar-lagoon { background: var(--accent); color: var(--accent2); animation-delay: 0.15s; }
+  .hbar-docker { background: rgba(255,255,255,0.2); color: #cdd6f4; animation-delay: 0.35s; }
+  .hbar-devc   { background: rgba(255,255,255,0.09); color: #6c7086; animation-delay: 0.55s; }
+  @keyframes hbarGrow { to { transform: scaleX(1); } }
+  .hbar-value { font-family: var(--mono); font-size: 0.8rem; color: #45475a; }
+  .hbar-value-lagoon { color: var(--accent); font-weight: 600; }
+  .chart-note { margin-top: 24px; font-family: var(--mono); font-size: 0.68rem; color: #313244; }
+
+  /* SPLIT */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 72px; align-items: center; }
+
+  /* TOML */
+  .toml-block {
+    background: #0c0e14;
+    border-radius: 16px;
+    padding: 28px;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    line-height: 2.1;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .tk { color: #89b4fa; }
+  .ts { color: #a6e3a1; }
+  .tc { color: #313244; }
+
+  /* ISOLATION */
+  .iso-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 52px; }
+  .iso-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .iso-head { padding: 12px 18px; border-bottom: 1px solid var(--border); font-size: 0.78rem; font-weight: 700; font-family: var(--mono); color: var(--fg2); }
+  .iso-body { padding: 20px; font-family: var(--mono); font-size: 0.79rem; line-height: 2; background: #0c0e14; color: #cdd6f4; }
+
+  /* CTA */
+  .cta-section { text-align: center; padding: 100px 48px; }
+  .cta-section h2 { max-width: 580px; margin: 16px auto 20px; }
+  .cta-section .section-sub { margin: 0 auto 42px; text-align: center; max-width: 380px; }
+
+  /* FOOTER */
+  footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 36px 56px;
+    max-width: 1240px;
+    margin: 0 auto;
+    color: var(--fg2);
+    font-size: 0.85rem;
+    border-top: 1px solid var(--border);
+  }
+  footer a { color: var(--fg2); text-decoration: none; }
+  footer a:hover { color: var(--fg); }
+  .footer-links { display: flex; gap: 24px; }
+  .divider { height: 1px; background: var(--border); }
+
+  code {
+    font-family: var(--mono);
+    background: var(--bg2);
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-size: 0.88em;
+  }
+
+  @media (max-width: 900px) {
+    .hero, .split { grid-template-columns: 1fr; }
+    .feature-grid { grid-template-columns: 1fr 1fr; }
+    .iso-grid { grid-template-columns: 1fr; }
+    nav { padding: 0 24px; }
+    .hero, .section { padding: 64px 24px; }
+    .comparison-inner { padding: 0 24px; }
+    footer { padding: 24px; flex-direction: column; gap: 16px; text-align: center; }
+    .hbar-row { grid-template-columns: 90px 1fr 56px; }
+    .stack-section { padding: 56px 24px; }
+    .cta-section { padding: 72px 24px; }
+    .cta-section .btn { width: 100%; justify-content: center; }
+    .cta-section > div[style] { flex-direction: column; align-items: stretch; padding: 0 16px; }
+  }
+  @media (max-width: 480px) {
+    .feature-grid { grid-template-columns: 1fr; }
+    .feature-card { padding: 32px 28px; }
+    .install-cmd { font-size: 0.72rem; }
+    .nav-links li:not(:last-child) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="index.html" class="logo">lagoon<span>_</span></a>
+  <ul class="nav-links">
+    <li><a href="lagoon-docs.html">Docs</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="https://github.com/imraghavojha/lagoon">GitHub ↗</a></li>
+    <li><a href="#install" class="nav-cta">Get started</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div>
+    <div class="hero-badge">v0.2 · arm64 + amd64 · linux</div>
+    <h1>A blazing fast<br><em>Docker alternative</em><br>that won't melt<br>your Pi.</h1>
+    <p class="hero-sub">
+      No daemons. No root. No surprises. One commit gives everyone on your team — and that Pi in the closet — an identical shell.
+    </p>
+    <div class="hero-actions">
+      <a href="#install" class="btn btn-primary">Install lagoon ↓</a>
+      <a href="https://github.com/imraghavojha/lagoon" class="btn btn-secondary">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
+
+  <!-- BUBBLETEA / HUH TUI -->
+  <div>
+    <div class="tui">
+      <div class="tui-bar">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+        <span class="tui-title">~/myproject — lagoon init</span>
+      </div>
+      <div class="tui-body">
+
+        <div class="huh-title">What packages do you need?</div>
+        <div class="huh-hint">searching nixos.org... 12 matches found</div>
+        <div class="huh-input">
+          <span style="color:#45475a">❯</span>
+          <span style="color:#a6e3a1">python311 ff</span>
+          <span class="huh-cursor">█</span>
+        </div>
+        <div style="font-size:0.75rem; color:#cdd6f4; margin-top:-14px; margin-bottom:18px; padding: 8px 0; background: #1e2030; border: 1px solid #313244; border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+          <div style="padding: 2px 14px; background: rgba(45,224,138,0.1); color:var(--accent); font-weight:700;">❯ ffmpeg <span style="float:right; opacity:0.4; font-weight:400;">nixpkgs</span></div>
+          <div style="padding: 2px 14px; opacity:0.6;">  fftw</div>
+          <div style="padding: 2px 14px; opacity:0.6;">  firefox</div>
+        </div>
+
+        <div class="huh-title">Network access inside sandbox?</div>
+        <div style="margin: 6px 0 18px;">
+          <div style="display:flex;gap:10px;align-items:center;">
+            <span style="color:#45475a">○</span> <span style="color:#45475a">yes</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <span style="color:var(--accent)">●</span> <span style="color:#cdd6f4; font-weight:500;">no</span>
+          </div>
+        </div>
+
+        <div class="huh-sep">──────────────────────────────</div>
+
+        <div style="color:#45475a; font-size:0.78rem; margin-bottom:14px; line-height:1.9;">
+          <span style="color:#cba6f7">packages</span>   python311  ffmpeg  cowsay<br>
+          <span style="color:#cba6f7">nixpkgs</span>    26eaeac4 (pinned)<br>
+          <span style="color:#cba6f7">network</span>    off
+        </div>
+
+        <div class="huh-title" style="margin-bottom:6px;">Write lagoon.toml?</div>
+        <div style="display:flex;gap:20px;margin-bottom:14px;">
+          <div style="display:flex;gap:10px;align-items:center;">
+            <span style="color:var(--accent)">●</span> <span style="color:#cdd6f4;font-weight:500;">yes</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <span style="color:#45475a">○</span> <span style="color:#45475a">no</span>
+          </div>
+        </div>
+
+        <div style="color:#45475a; font-size:0.72rem; margin-bottom:14px;">
+          <span style="color:#313244">enter</span> confirm &nbsp;&nbsp; <span style="color:#313244">↑↓</span> select &nbsp;&nbsp; <span style="color:#313244">q</span> quit
+        </div>
+
+        <div class="huh-banner">
+          <span style="color:var(--accent)">✓</span> created lagoon.toml<br>
+          <span style="color:#febc2e">!</span> commit it: git add lagoon.toml &amp;&amp; git commit
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- INSTALL -->
+<div id="install" class="install-strip">
+  <h2>install in one line · requires linux + bubblewrap + nix</h2>
+  <div class="install-cmd">
+    <span>curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh | bash</span>
+    <button class="copy-btn" onclick="navigator.clipboard.writeText('curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh | bash'); this.textContent='copied!'; setTimeout(()=>this.textContent='copy',2000)">copy</button>
+  </div>
+</div>
+
+<!-- TECH STACK -->
+<div class="stack-section">
+  <div class="stack-label">— lagoon is built on —</div>
+  <div class="stack-icons">
+
+    <div class="stack-icon">
+      <div class="stack-bubble" style="background:#eef2fb;">
+        <!-- NixOS official logo (accurate lambdas) -->
+        <svg width="40" height="40" viewBox="0 0 204 235" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <path id="lambda" d="M 95.97,66.05 69.43,19.22 42.89,66.05 27.35,39.13 53.89,12.3 80.43,12.3 107,12.3 133.5,12.3 107,58.68 Z" />
+          </defs>
+          <g transform="translate(102, 117.5)">
+            <use href="#lambda" fill="#5277C3" transform="rotate(0) translate(-69.43, -117.5)" />
+            <use href="#lambda" fill="#5277C3" transform="rotate(120) translate(-69.43, -117.5)" />
+            <use href="#lambda" fill="#5277C3" transform="rotate(240) translate(-69.43, -117.5)" />
+            <use href="#lambda" fill="#7EBAE4" transform="rotate(60) translate(-69.43, -117.5)" />
+            <use href="#lambda" fill="#7EBAE4" transform="rotate(180) translate(-69.43, -117.5)" />
+            <use href="#lambda" fill="#7EBAE4" transform="rotate(300) translate(-69.43, -117.5)" />
+          </g>
+        </svg>
+      </div>
+      <span class="stack-name">Nix</span>
+    </div>
+
+    <div class="stack-icon">
+      <div class="stack-bubble" style="background:#edf7f0;">
+        <!-- bubblewrap represented by Flatpak box (official engine) -->
+        <svg width="32" height="32" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#4A90D9" d="M128 0L0 64v128l128 64 128-64V64L128 0zm0 25.6l96 48-96 48-96-48 96-48zm-108.8 64L115.2 152v96l-96-48V89.6zm217.6 0v96l-96 48v-96l96-48z"/>
+        </svg>
+      </div>
+      <span class="stack-name">bubblewrap</span>
+    </div>
+
+    <div class="stack-icon">
+      <div class="stack-bubble" style="background:#e8f8fc;">
+        <!-- Go official wordmark logo -->
+        <svg width="50" height="20" viewBox="0 0 512 191" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#00ADD8" d="M139.1 148.3c-19.4 0-35.3-6.4-47.6-19.2-12.3-12.8-18.5-29.7-18.5-50.7 0-21.3 6.1-38.4 18.3-51.3C103.5 14.2 119.4 7.7 139 7.7c11.9 0 22.5 2.5 31.8 7.5 9.3 5 16.6 12.1 21.9 21.3l-24.4 14.1c-6.4-11.1-16.1-16.7-29.1-16.7-9.4 0-17.1 3.3-23.1 9.9-6 6.6-9 15.1-9 25.5 0 10.5 3 19.1 9.1 25.8 6.1 6.7 13.8 10 23.2 10 13.3 0 23.1-5.8 29.4-17.4h-29.1V65.4h56.1v13.1c0 21.1-6.3 38.1-18.8 50.9-12.5 12.7-28.8 18.9-48.9 18.9z"/>
+          <path fill="#00ADD8" d="M313.1 148.3c-19.1 0-34.8-6.5-47.1-19.4-12.3-12.9-18.5-29.7-18.5-50.4 0-20.9 6.2-37.8 18.5-50.7 12.3-12.9 28-19.4 47.1-19.4 19.1 0 34.8 6.5 47.1 19.4 12.3 12.9 18.5 29.8 18.5 50.7 0 20.7-6.2 37.5-18.5 50.4-12.3 12.9-28 19.4-47.1 19.4zm0-26.4c9.4 0 17.1-3.4 23.1-10.1 6-6.7 9-15.4 9-26 0-10.7-3-19.4-9-26.1-6-6.7-13.7-10.1-23.1-10.1-9.4 0-17.1 3.4-23.1 10.1-6 6.7-9 15.4-9 26.1 0 10.6 3 19.3 9 26 6 6.7 13.7 10.1 23.1 10.1z"/>
+        </svg>
+      </div>
+      <span class="stack-name">Go</span>
+    </div>
+
+    <div class="stack-icon">
+      <div class="stack-bubble" style="background:#fdf0f8;">
+        <!-- Bubbletea / Charm official icon -->
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18.5 3H5.5L4 16.5C4 18.98 6.02 21 8.5 21H15.5C17.98 21 20 18.98 20 16.5L18.5 3ZM12 18C10.9 18 10 17.1 10 16C10 14.9 10.9 14 12 14C13.1 14 14 14.9 14 16C14 17.1 13.1 18 12 18ZM15 13C13.9 13 13 12.1 13 11C13 9.9 13.9 9 15 9C16.1 9 17 9.9 17 11C17 12.1 16.1 13 15 13ZM9 13C7.9 13 7 12.1 7 11C7 9.9 7.9 9 9 9C10.1 9 11 9.9 11 11C11 12.1 10.1 13 9 13Z" fill="#f472b6"/>
+        </svg>
+      </div>
+      <span class="stack-name">Bubbletea</span>
+    </div>
+
+    <div class="stack-icon">
+      <div class="stack-bubble" style="background:#f0fdf4;">
+        <!-- Cobra CLI official snake logo -->
+        <svg width="36" height="36" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <path d="M50 15 C40 15 35 20 35 25 C35 30 40 32 42 35 C30 38 15 45 15 65 C15 80 30 85 50 85 C70 85 85 80 85 65 C85 45 70 38 58 35 C60 32 65 30 65 25 C65 20 60 15 50 15 Z" fill="#16a34a" />
+          <circle cx="43" cy="24" r="1.5" fill="white" />
+          <circle cx="57" cy="24" r="1.5" fill="white" />
+        </svg>
+      </div>
+      <span class="stack-name">Cobra</span>
+    </div>
+
+    <div class="stack-icon">
+      <div class="stack-bubble" style="background:#fef0f4;">
+        <!-- Raspberry Pi official logo (accurate paths) -->
+        <svg width="32" height="32" viewBox="0 0 512 647" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#46AF4B" d="M256 195.3c-29.7-39.7-79.4-63.5-132.3-63.5-19.8 0-39.7 3.3-59.5 9.9 13.2-46.3 52.9-79.4 102.5-79.4 23.1 0 43 6.6 59.5 19.8 16.5-13.2 36.4-19.8 59.5-19.8 49.6 0 89.3 33.1 102.5 79.4-19.8-6.6-39.7-9.9-59.5-9.9-52.9 0-102.6 23.8-132.7 63.5z"/>
+          <path fill="#C51A4A" d="M256 647c-13.2 0-26.5-3.3-39.7-9.9-102.5-49.6-165.4-152.1-165.4-264.6 0-105.8 86-191.8 191.8-191.8s191.8 86 191.8 191.8c0 112.5-62.9 215-165.4 264.6-13.2 6.6-26.5 9.9-39.7 9.9z"/>
+          <path fill="#A6123A" d="M256 580.8c-79.4-36.4-129-115.8-129-208.3 0-82.7 66.1-148.8 148.8-148.8s148.8 66.1 148.8 148.8c0 92.5-49.6 171.9-129 208.3-6.6 3.3-13.2 3.3-19.8 3.3s-13.2 0-19.8-3.3z"/>
+        </svg>
+      </div>
+      <span class="stack-name">Raspberry Pi</span>
+    </div>
+
+    <div class="stack-icon">
+      <div class="stack-bubble" style="background:#f5f5f5;">
+        <!-- Linux / Tux Simple Icons version -->
+        <svg width="36" height="36" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#333" d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2.025.134.063.198.114.333l.003.003c.391.778 1.113 1.132 1.884 1.071.771-.06 1.592-.536 2.257-1.306.631-.765 1.683-1.084 2.378-1.503.348-.199.629-.469.649-.853.023-.4-.2-.811-.714-1.376v-.097l-.003-.003c-.17-.2-.25-.535-.338-.926-.085-.401-.182-.786-.492-1.046h-.003c-.059-.054-.123-.067-.188-.135a.357.357 0 00-.19-.064c.431-1.278.264-2.55-.173-3.694-.533-1.41-1.465-2.638-2.175-3.483-.796-1.005-1.576-1.957-1.56-3.368.026-2.152.236-6.133-3.544-6.139z"/>
+        </svg>
+      </div>
+      <span class="stack-name">Linux</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- FEATURES -->
+<div class="section" id="features">
+  <div class="section-label">features</div>
+  <h2>Everything you need.<br>Nothing you don't.</h2>
+  <p class="section-sub">Heavyweight reproducibility with a featherweight footprint.</p>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <h3>Instant warm starts</h3>
+      <p>After the first run, lagoon shells open in milliseconds. No daemon. No container pull. Just your environment, immediately.</p>
+    </div>
+    <div class="feature-card">
+      <h3>Secure by default</h3>
+      <p>Network off unless you ask. Host filesystem invisible. Env variables wiped. Exit and leave absolutely zero trace.</p>
+    </div>
+    <div class="feature-card">
+      <h3>Pinned forever</h3>
+      <p>A locked nixpkgs commit means the same command in 2027 gives you the same binary as today. No drift. Ever.</p>
+    </div>
+    <div class="feature-card">
+      <h3>Hot reloading</h3>
+      <p>Live reload built in. <code>lagoon watch</code> monitors your project for changes and restarts your command automatically with a 300ms debounce.</p>
+    </div>
+    <div class="feature-card">
+      <h3>Tamper detection</h3>
+      <p>Cryptographic safety. <code>lagoon verify</code> fingerprints every nix store path to prove byte-for-byte that your environment remains unchanged.</p>
+    </div>
+    <div class="feature-card">
+      <h3>Memory limits</h3>
+      <p>Cap sandbox memory via systemd-run (e.g., <code>-m 512m</code>). Ideal for shared machines and dense Pi clusters.</p>
+    </div>
+    <div class="feature-card">
+      <h3>ARM-first</h3>
+      <p>Built for Raspberry Pi 4/5. First run compiles from source on ARM — after that, cache hits make it instant.</p>
+    </div>
+    <div class="feature-card">
+      <h3>One config, any machine</h3>
+      <p>"It works on my machine. And yours." One committed file, infinite identical shells — including that Pi in the closet.</p>
+    </div>
+    <div class="feature-card">
+      <h3>Offline exports</h3>
+      <p>Snapshot environments to <code>.nar</code> files with <code>export</code> and <code>import</code>. Deploy to air-gapped machines without a registry.</p>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- STARTUP TIME CHART -->
+<div class="comparison-section">
+  <div class="comparison-inner">
+    <div class="section-label">performance</div>
+    <h2>Start faster. Stay lighter.</h2>
+    <p class="section-sub">Warm cache shell startup on a Raspberry Pi 4. Lower is better.</p>
+
+    <div class="chart-wrapper" id="chartArea">
+      <div class="chart-meta">
+        <div class="chart-meta-title">Warm cache · Time to interactive shell · Raspberry Pi 4 · Ubuntu 24.04 LTS</div>
+        <div class="chart-meta-sub">Shell ready time comparison</div>
+      </div>
+
+      <div class="hbar-chart">
+        <div class="hbar-row">
+          <div class="hbar-label">lagoon <span class="hbar-sublabel">v0.2</span></div>
+          <div class="hbar-track">
+            <div class="hbar-fill hbar-lagoon" style="width:12%; justify-content: center;"></div>
+          </div>
+          <div class="hbar-value hbar-value-lagoon">280ms</div>
+        </div>
+        <div class="hbar-row">
+          <div class="hbar-label">Docker <span class="hbar-sublabel">v25.0</span></div>
+          <div class="hbar-track">
+            <div class="hbar-fill hbar-docker" style="width:75%;"></div>
+          </div>
+          <div class="hbar-value">15.4s</div>
+        </div>
+        <div class="hbar-row">
+          <div class="hbar-label">Dev Containers <span class="hbar-sublabel">VS Code</span></div>
+          <div class="hbar-track">
+            <div class="hbar-fill hbar-devc" style="width:100%;"></div>
+          </div>
+          <div class="hbar-value">24s+</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIG -->
+<div class="section">
+  <div class="split">
+    <div>
+      <div class="section-label">config</div>
+      <h2>It works on my machine. And yours.</h2>
+      <p class="section-sub">
+        One file. Commit it. Everyone — your teammates, your CI, that Pi in the closet — runs the exact same environment.
+      </p>
+      <br>
+      <p class="section-sub" style="font-size:0.9rem;">
+        The nixpkgs pin is bundled in the binary. You never touch it.<br>
+        Find package names at <a href="https://search.nixos.org/packages" style="color:var(--accent2);font-weight:700;">search.nixos.org ↗</a>
+      </p>
+    </div>
+    <div>
+      <div class="toml-block">
+        <div><span class="tc"># lagoon.toml — commit this</span></div>
+        <div>&nbsp;</div>
+        <div><span class="tk">packages</span> = [<span class="ts">"python311"</span>, <span class="ts">"ffmpeg"</span>, <span class="ts">"cowsay"</span>]</div>
+        <div>&nbsp;</div>
+        <div><span class="tc"># same binary in 2027</span></div>
+        <div><span class="tk">nixpkgs_commit</span> = <span class="ts">"26eaeac4..."</span></div>
+        <div><span class="tk">nixpkgs_sha256</span>  = <span class="ts">"1knl8dcr..."</span></div>
+        <div>&nbsp;</div>
+        <div><span class="tc"># "minimal" = no network | "network" = on</span></div>
+        <div><span class="tk">profile</span> = <span class="ts">"minimal"</span></div>
+        <div>&nbsp;</div>
+        <div><span class="tc"># optional: runs on every shell entry</span></div>
+        <div><span class="tk">on_enter</span> = <span class="ts">"source .venv/bin/activate"</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ISOLATION -->
+<div style="background:var(--bg2); border-top:1px solid var(--border); border-bottom:1px solid var(--border);">
+<div class="section">
+  <div class="section-label">isolation</div>
+  <h2>Secure by default.</h2>
+  <p class="section-sub">No file, network, or host env access unless you explicitly enable it. Exit the sandbox and leave zero trace.</p>
+
+  <div class="iso-grid">
+    <div class="iso-card">
+      <div class="iso-head">🐳 Other tools</div>
+      <div class="iso-body">
+        <div style="color:#45475a">$ docker run -it python bash</div>
+        <div style="color:#45475a">Pulling from library/python...</div>
+        <div style="color:#45475a">Status: Downloaded newer image</div>
+        <div>&nbsp;</div>
+        <div style="color:#f38ba8">✗ host HOME leaks in</div>
+        <div style="color:#f38ba8">✗ daemon running in background</div>
+        <div style="color:#f38ba8">✗ requires root / docker group</div>
+        <div style="color:#f38ba8">✗ image drifts over time</div>
+      </div>
+    </div>
+    <div class="iso-card">
+      <div class="iso-head">🌊 lagoon</div>
+      <div class="iso-body">
+        <div style="color:#45475a">$ lagoon shell</div>
+        <div style="color:var(--accent)">✓ environment ready (estimated from benchmarks on raspberry pi 4)</div>
+        <div>&nbsp;</div>
+        <div style="color:var(--accent)">✓ network off (profile: minimal)</div>
+        <div style="color:var(--accent)">✓ host filesystem invisible</div>
+        <div style="color:var(--accent)">✓ no daemon, no root required</div>
+        <div style="color:var(--accent)">✓ pinned — identical in 2027</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- CTA -->
+<div class="cta-section">
+  <div class="section-label">get started</div>
+  <h2>Reproducible sandboxes in 60 seconds.</h2>
+  <p class="section-sub">Linux (arm64 or amd64), bubblewrap, nix. That's all you need.</p>
+  <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap; max-width:400px; margin: 0 auto;">
+    <a href="https://github.com/imraghavojha/lagoon#install" class="btn btn-primary" style="font-size:1rem; padding:15px 34px; flex:1; justify-content:center; min-width:160px;">Install lagoon →</a>
+    <a href="lagoon-docs.html" class="btn btn-secondary" style="font-size:1rem; padding:15px 34px; flex:1; justify-content:center; min-width:160px;">Read the docs</a>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <a href="index.html" class="logo" style="font-size:1.2rem; font-family:var(--serif);">lagoon<span style="color:var(--accent)">_</span></a>
+  <span style="color:var(--fg2); font-size:0.82rem;">no docker. no root. no daemons.</span>
+  <div class="footer-links">
+    <a href="https://github.com/imraghavojha/lagoon">GitHub</a>
+    <a href="lagoon-docs.html">Docs</a>
+    <a href="https://search.nixos.org/packages">Packages ↗</a>
+  </div>
+</footer>
+
+<script>
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.querySelectorAll('.hbar-fill').forEach(b => {
+        b.style.animation = 'none';
+        b.offsetHeight;
+        b.style.animation = '';
+      });
+    }
+  });
+}, { threshold: 0.3 });
+const chart = document.getElementById('chartArea');
+if (chart) io.observe(chart);
+</script>
+</body>
+</html>

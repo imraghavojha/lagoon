@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>lagoon — Documentation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Fraunces:ital,wght@0,300;0,700;1,300;1,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f7f6f2;
+    --bg2: #edecea;
+    --fg: #111;
+    --fg2: #666;
+    --accent: #2de08a;
+    --accent-dim: rgba(45,224,138,0.13);
+    --accent2: #0a3d2e;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Cabinet Grotesk', sans-serif;
+    --serif: 'Fraunces', serif;
+    --card: #fff;
+    --border: rgba(0,0,0,0.09);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.6;
+    overflow-x: hidden;
+    width: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* NAV */
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 56px;
+    height: 62px;
+    width: 100%;
+    border-bottom: 1px solid var(--border);
+    background: rgba(247,246,242,0.92);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+  }
+  .logo {
+    font-family: var(--serif);
+    font-size: 1.65rem;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    color: var(--fg);
+    text-decoration: none;
+    z-index: 1001;
+  }
+  .logo span { color: var(--accent); }
+  .nav-links { display: flex; align-items: center; gap: 28px; list-style: none; }
+  .nav-links li { margin-bottom: 0 !important; }
+  .nav-links a { font-size: 0.9rem; font-weight: 500; color: var(--fg2); text-decoration: none; transition: color 0.15s; }
+  .nav-links a:hover { color: var(--fg); }
+  .nav-links a.active { color: var(--fg); font-weight: 700; }
+  .nav-cta { background: var(--fg) !important; color: var(--bg) !important; padding: 8px 20px !important; border-radius: 100px !important; font-weight: 700 !important; text-decoration: none !important; white-space: nowrap; }
+
+  /* CODE COPY BUTTON */
+  .code-wrapper {
+    position: relative;
+    margin: 32px 0;
+  }
+  .code-wrapper .cmd, .code-wrapper .toml-block {
+    margin: 0;
+  }
+  .copy-btn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    color: #6c7086;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 10;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+  .copy-btn:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* Mobile Menu Toggle */
+  .menu-toggle {
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 10px;
+    z-index: 1001;
+  }
+  .menu-toggle span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: var(--fg);
+    transition: 0.3s;
+  }
+
+  /* LAYOUT */
+  .container {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 0;
+    min-height: calc(100vh - 62px);
+    max-width: 100%;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    padding: 48px 24px;
+    height: calc(100vh - 62px);
+    position: sticky;
+    top: 62px;
+    overflow-y: auto;
+    z-index: 90;
+  }
+  .sidebar-title {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--fg2);
+    margin: 32px 8px 12px;
+  }
+  .sidebar-title:first-child { margin-top: 0; }
+  .sidebar-nav { list-style: none; }
+  .sidebar-nav li a {
+    display: block;
+    padding: 10px 14px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--fg2);
+    text-decoration: none;
+    border-radius: 10px;
+    transition: all 0.2s cubic-bezier(0.34, 1.2, 0.64, 1);
+  }
+  .sidebar-nav li a:hover { background: var(--accent-dim); color: var(--fg); padding-left: 18px; }
+  .sidebar-nav li a.active {
+    background: var(--accent);
+    color: var(--accent2);
+    font-weight: 700;
+    box-shadow: 0 4px 12px rgba(45,224,138,0.25);
+  }
+
+  /* MAIN CONTENT */
+  .main {
+    padding: 96px 80px 120px;
+    max-width: 1000px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  h1 {
+    font-size: clamp(2.4rem, 4vw, 3.2rem);
+    font-weight: 900;
+    letter-spacing: -0.035em;
+    margin-bottom: 24px;
+    line-height: 1.1;
+    word-wrap: break-word;
+  }
+  h2 {
+    font-size: clamp(1.8rem, 3vw, 2.2rem);
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    margin-top: 80px;
+    margin-bottom: 24px;
+    padding-top: 40px;
+    border-top: 1px solid var(--border);
+    line-height: 1.1;
+    word-wrap: break-word;
+  }
+  h2:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+  h3 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-top: 48px;
+    margin-bottom: 16px;
+    word-wrap: break-word;
+  }
+
+  p {
+    margin-bottom: 20px;
+    color: var(--fg);
+    font-size: 1.05rem;
+    line-height: 1.75;
+    word-wrap: break-word;
+  }
+
+  code {
+    font-family: var(--mono);
+    background: var(--bg2);
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-size: 0.88em;
+    color: #d63384;
+    word-break: break-all;
+  }
+
+  /* TERMINAL / CODE BLOCKS */
+  .cmd, .toml-block {
+    background: #0c0e14;
+    border-radius: 16px;
+    padding: 28px;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    line-height: 2;
+    margin: 32px 0;
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+    overflow-x: auto;
+    max-width: 100%;
+    white-space: pre;
+    -webkit-overflow-scrolling: touch;
+  }
+  .cmd { border-left: 4px solid var(--accent); color: #a6e3a1; }
+  .cmd .prompt { color: #6c7086; font-weight: 500; }
+  .cmd .output { color: #cdd6f4; display: block; margin-top: 4px; }
+
+  .toml-key { color: #89b4fa; font-weight: 600; }
+  .toml-str { color: #a6e3a1; }
+  .toml-comment { color: #45475a; }
+
+  .note {
+    background: linear-gradient(135deg, var(--accent-dim) 0%, rgba(45,224,138,0.08) 100%);
+    border-left: 4px solid var(--accent);
+    padding: 24px 28px;
+    border-radius: 12px;
+    margin: 32px 0;
+    font-size: 1rem;
+    line-height: 1.75;
+    word-wrap: break-word;
+  }
+  .note strong { color: var(--accent2); font-weight: 800; }
+
+  ul, ol { margin-left: 24px; margin-bottom: 24px; }
+  li { margin-bottom: 12px; line-height: 1.75; font-size: 1rem; word-wrap: break-word; }
+
+  .grid-2, .grid-3 {
+    display: grid;
+    gap: 24px;
+    margin: 40px 0;
+  }
+  .grid-2 { grid-template-columns: 1fr 1fr; }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+  .box {
+    background: #fff;
+    border: 1px solid var(--border);
+    padding: 32px;
+    border-radius: 16px;
+    transition: all 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
+    min-width: 0;
+  }
+  .box:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.06); border-color: rgba(0,0,0,0.12); }
+  .box h4 { font-weight: 800; font-size: 1.1rem; margin-bottom: 12px; letter-spacing: -0.02em; }
+  .box p { font-size: 0.95rem; margin-bottom: 0; line-height: 1.6; }
+
+  .section-intro {
+    font-size: 1.2rem;
+    color: var(--fg2);
+    margin-bottom: 40px;
+    line-height: 1.7;
+    font-weight: 500;
+  }
+
+  /* FOOTER */
+  footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 36px 56px;
+    width: 100%;
+    background: var(--bg);
+    color: var(--fg2);
+    font-size: 0.85rem;
+    border-top: 1px solid var(--border);
+  }
+  footer a { color: var(--fg2); text-decoration: none; }
+  footer a:hover { color: var(--fg); }
+  .footer-links { display: flex; gap: 24px; }
+
+  @media (max-width: 1024px) {
+    nav { padding: 0 24px; }
+    .menu-toggle { display: flex; }
+    
+    .nav-links {
+      position: fixed;
+      top: 62px;
+      left: 0;
+      width: 100%;
+      height: 0;
+      background: var(--bg);
+      flex-direction: column;
+      gap: 0;
+      overflow: hidden;
+      transition: height 0.3s ease;
+      border-bottom: 0px solid var(--border);
+      z-index: 1000;
+    }
+    .nav-links.open {
+      height: auto;
+      padding: 20px 0;
+      border-bottom-width: 1px;
+    }
+    .nav-links li {
+      width: 100%;
+      text-align: center;
+    }
+    .nav-links a {
+      display: block;
+      padding: 15px;
+      font-size: 1.1rem;
+    }
+    .nav-cta {
+      margin: 10px 24px;
+      display: inline-block !important;
+    }
+
+    .container { grid-template-columns: minmax(0, 1fr); }
+    .sidebar { 
+      position: relative; 
+      height: auto; 
+      top: 0; 
+      border-right: none; 
+      border-bottom: 1px solid var(--border); 
+      padding: 24px; 
+      max-height: 300px;
+      width: 100%;
+    }
+    .main { padding: 60px 24px; }
+    .grid-3, .grid-2 { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 640px) {
+    .main { padding: 48px 20px; }
+    h1 { font-size: 2.2rem; }
+    h2 { font-size: 1.6rem; margin-top: 60px; }
+    .cmd, .toml-block { padding: 20px; font-size: 0.8rem; margin: 24px 0; }
+    footer { padding: 32px 24px; flex-direction: column; gap: 20px; text-align: center; }
+    .footer-links { gap: 16px; flex-wrap: wrap; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="index.html" class="logo">lagoon<span>_</span></a>
+  
+  <button class="menu-toggle" id="menuToggle">
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
+
+  <ul class="nav-links" id="navLinks">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="#" class="active">Docs</a></li>
+    <li><a href="https://github.com/imraghavojha/lagoon">GitHub ↗</a></li>
+    <li><a href="index.html#install" class="nav-cta">Get started</a></li>
+  </ul>
+</nav>
+
+<!-- LAYOUT -->
+<div class="container">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-title">Getting Started</div>
+    <ul class="sidebar-nav">
+      <li><a href="#intro" class="active">Introduction</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#quickstart">Quick Start</a></li>
+    </ul>
+
+    <div class="sidebar-title">Core Concepts</div>
+    <ul class="sidebar-nav">
+      <li><a href="#how-it-works">How It Works</a></li>
+      <li><a href="#isolation">Isolation</a></li>
+      <li><a href="#reproducibility">Reproducibility</a></li>
+    </ul>
+
+    <div class="sidebar-title">Usage</div>
+    <ul class="sidebar-nav">
+      <li><a href="#init">lagoon init</a></li>
+      <li><a href="#shell">lagoon shell</a></li>
+      <li><a href="#watch">lagoon watch</a></li>
+      <li><a href="#verify">lagoon verify</a></li>
+      <li><a href="#lint">lagoon lint</a></li>
+      <li><a href="#status">lagoon status</a></li>
+      <li><a href="#stats">lagoon stats</a></li>
+      <li><a href="#export-import">lagoon export/import</a></li>
+      <li><a href="#clean">lagoon clean</a></li>
+      <li><a href="#config">Configuration</a></li>
+    </ul>
+
+    <div class="sidebar-title">Reference</div>
+    <ul class="sidebar-nav">
+      <li><a href="#toml-format">lagoon.toml Format</a></li>
+      <li><a href="#packages">Finding Packages</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ul>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- INTRO -->
+    <section id="intro">
+      <h1>lagoon Docs</h1>
+      <p class="section-intro">
+        Reproducible sandboxed shell environments. No Docker. No root. No daemons.
+      </p>
+      <p>
+        <strong>lagoon</strong> creates isolated shell environments with exactly the tools you need. 
+        Commit one config file and everyone on your team — plus that Raspberry Pi — gets an identical environment.
+      </p>
+      <p>
+        It uses <strong>bwrap</strong> (bubblewrap) for isolation and <strong>nix</strong> for reproducibility. 
+        First run builds the environment. Next runs start instantly.
+      </p>
+    </section>
+
+    <!-- INSTALL -->
+    <section id="install">
+      <h2>Install</h2>
+      <p>
+        lagoon requires Linux (arm64 or amd64), bubblewrap, and Nix.
+      </p>
+
+      <h3>1. Install dependencies</h3>
+      <div class="cmd"><span class="prompt">$</span> sudo apt install bubblewrap
+<span class="prompt">$</span> sh &lt;(curl -L https://nixos.org/nix/install) --no-daemon
+<span class="prompt">$</span> source ~/.nix-profile/etc/profile.d/nix.sh</div>
+
+      <h3>2. Install lagoon</h3>
+      <div class="cmd"><span class="prompt">$</span> curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh | bash</div>
+
+      <p>Verify it works:</p>
+      <div class="cmd"><span class="prompt">$</span> lagoon --version</div>
+
+      <div class="note">
+        <strong>On ARM:</strong> Some packages may compile from source on first use. Subsequent runs are instant.
+      </div>
+    </section>
+
+    <!-- QUICKSTART -->
+    <section id="quickstart">
+      <h2>Quick Start</h2>
+
+      <h3>1. Create your environment</h3>
+      <p>In your project directory:</p>
+      <div class="cmd"><span class="prompt">$</span> lagoon init</div>
+
+      <p>Follow the TUI to search for packages and set your profile. This creates <code>lagoon.toml</code>. Commit it to version control:</p>
+      <div class="cmd"><span class="prompt">$</span> git add lagoon.toml && git commit -m "add lagoon environment"</div>
+
+      <h3>2. Enter the sandbox</h3>
+      <div class="cmd"><span class="prompt">$</span> lagoon shell</div>
+
+      <p>You're now in an isolated environment. Your project is at <code>/workspace</code>.</p>
+
+      <h3>3. Use it</h3>
+      <div class="cmd"><span class="prompt">[lagoon] /workspace $</span> python3 --version
+<span class="output">Python 3.11.8</span>
+<span class="prompt">[lagoon] /workspace $</span> ffmpeg -version | head -1
+<span class="output">ffmpeg version 6.1.1</span></div>
+
+      <h3>4. Exit</h3>
+      <div class="cmd"><span class="prompt">[lagoon] /workspace $</span> exit</div>
+
+      <p>Back on your host shell. Nothing persists from inside the sandbox.</p>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section id="how-it-works">
+      <h2>How It Works</h2>
+
+      <p>
+        lagoon combines three core technologies:
+      </p>
+
+      <div class="grid-3">
+        <div class="box">
+          <h4>Nix Package Manager</h4>
+          <p>Resolves exact package versions from a pinned nixpkgs commit. Same packages, same versions, everywhere.</p>
+        </div>
+        <div class="box">
+          <h4>Bubblewrap Sandbox</h4>
+          <p>Uses Linux user namespaces to create an isolated filesystem. No root required. No daemon.</p>
+        </div>
+        <div class="box">
+          <h4>Go Backend</h4>
+          <p>A fast, compiled core that manages the TUI, file watching, and sandbox lifecycle with zero overhead.</p>
+        </div>
+      </div>
+
+      <p>
+        When you run <code>lagoon shell</code>:
+      </p>
+
+      <ol>
+        <li>lagoon reads <code>lagoon.toml</code> and generates <code>shell.nix</code></li>
+        <li>nix-shell resolves packages (cached on subsequent runs)</li>
+        <li>bwrap creates an empty sandbox with only:
+          <ul>
+            <li>Your project at <code>/workspace</code></li>
+            <li>Nix store (read-only)</li>
+            <li>Ephemeral home directory</li>
+            <li>Minimal <code>/etc</code> for networking &amp; SSL</li>
+          </ul>
+        </li>
+        <li>You get a bash shell inside the sandbox</li>
+        <li>On exit, everything except <code>/workspace</code> is gone</li>
+      </ol>
+
+      <div class="note">
+        <strong>No daemon:</strong> Each <code>lagoon shell</code> is independent. Exit and nothing persists.
+      </div>
+    </section>
+
+    <!-- ISOLATION -->
+    <section id="isolation">
+      <h2>Isolation</h2>
+
+      <p>
+        Your sandbox is isolated by default. Here's what's blocked:
+      </p>
+
+      <div class="grid-2">
+        <div class="box">
+          <h4>Network</h4>
+          <p>Off unless you set <code>profile = "network"</code>. Prevents accidental data leaks.</p>
+        </div>
+        <div class="box">
+          <h4>Host Filesystem</h4>
+          <p>Only <code>/workspace</code> (your project) is visible. <code>/home</code>, <code>/root</code>, <code>/etc/shadow</code> are invisible.</p>
+        </div>
+        <div class="box">
+          <h4>Environment</h4>
+          <p>Host <code>$PATH</code>, <code>$PYTHONPATH</code>, tool configs — all wiped. Only nix packages are on PATH.</p>
+        </div>
+        <div class="box">
+          <h4>Home Directory</h4>
+          <p>Ephemeral tmpfs. Write config files if you need to — they vanish on exit.</p>
+        </div>
+      </div>
+
+      <p>
+        <strong>To enable network:</strong> Set <code>profile = "network"</code> in <code>lagoon.toml</code>.
+      </p>
+    </section>
+
+    <!-- REPRODUCIBILITY -->
+    <section id="reproducibility">
+      <h2>Reproducibility</h2>
+
+      <p>
+        One <code>lagoon.toml</code> file guarantees identical environments everywhere.
+      </p>
+
+      <p>
+        Each lagoon binary ships with a <strong>pinned nixpkgs commit</strong>. 
+        When you run <code>lagoon init</code>, it bakes that pin into <code>lagoon.toml</code>. 
+        If you commit this file, anyone — your teammate, your CI, a Raspberry Pi — who runs <code>lagoon shell</code> gets the exact same package versions.
+      </p>
+
+      <div class="note">
+        <strong>No drift:</strong> The same <code>lagoon.toml</code> in 2027 gives you the same environment as today.
+      </div>
+
+      <p>
+        <strong>To update packages:</strong> Edit <code>lagoon.toml</code> and update <code>nixpkgs_commit</code> &amp; <code>nixpkgs_sha256</code>. 
+        Or run <code>lagoon init</code> again — it will prompt to overwrite.
+      </p>
+    </section>
+
+    <!-- INIT -->
+    <section id="init">
+      <h2>lagoon init</h2>
+
+      <p>
+        Interactive setup for your project. Launches a live nixpkgs search TUI.
+      </p>
+
+      <div class="cmd"><span class="prompt">$</span> lagoon init</div>
+
+      <p>
+        <strong>What it does:</strong>
+      </p>
+      <ul>
+        <li><strong>Live Search:</strong> Queries <a href="https://search.nixos.org/packages" style="color:var(--accent2); font-weight:600;">search.nixos.org</a> as you type.</li>
+        <li><strong>Interactive Selection:</strong> Use arrow keys to pick packages and toggle network access.</li>
+        <li><strong>Preview & Confirm:</strong> Shows exactly what will be written to <code>lagoon.toml</code> before saving.</li>
+      </ul>
+
+      <p>
+        <strong>Overwrite guard:</strong> If <code>lagoon.toml</code> exists, lagoon asks before overwriting.
+      </p>
+
+      <p>
+        After creation, commit the file:
+      </p>
+      <div class="cmd"><span class="prompt">$</span> git add lagoon.toml && git commit -m "add lagoon environment"</div>
+    </section>
+
+    <!-- SHELL -->
+    <section id="shell">
+      <h2>lagoon shell</h2>
+
+      <p>
+        Enters the sandboxed environment defined in <code>lagoon.toml</code>.
+      </p>
+
+      <div class="cmd"><span class="prompt">$</span> lagoon shell</div>
+
+      <p>
+        First run builds the environment (may take minutes on ARM). Subsequent runs are instant (from cache).
+      </p>
+
+      <h3>Inside the sandbox</h3>
+      <ul>
+        <li><code>/workspace</code> — Your project directory (read/write)</li>
+        <li><code>$HOME</code> — <code>/home</code> (ephemeral)</li>
+        <li><code>$PATH</code> — Only nix packages you requested</li>
+        <li><code>Network</code> — Off by default (unless profile="network")</li>
+      </ul>
+
+      <h3>Flags</h3>
+      <ul>
+        <li><code>--cmd</code> — Run a one-off command and exit (e.g., <code>lagoon shell --cmd "make test"</code>).</li>
+        <li><code>--env</code>, <code>-e</code> — Inject environment variables (e.g., <code>-e DEBUG=1</code>).</li>
+        <li><code>--memory</code>, <code>-m</code> — Cap sandbox memory via systemd-run (e.g., <code>-m 512m</code>). <em>Requires systemd.</em></li>
+      </ul>
+    </section>
+
+    <!-- WATCH -->
+    <section id="watch">
+      <h2>lagoon watch</h2>
+      <p>
+        Live reload for your sandbox. Watches the current directory for file changes and automatically restarts your command.
+      </p>
+      <div class="cmd"><span class="prompt">$</span> lagoon watch "python3 server.py"</div>
+      <p>
+        <strong>Key behaviors:</strong>
+      </p>
+      <ul>
+        <li><strong>Debounce:</strong> 300ms delay prevents rapid-fire restarts while saving multiple files.</li>
+        <li><strong>Sandbox mode:</strong> The command runs inside the same isolated environment as <code>lagoon shell</code>.</li>
+        <li><strong>Requirement:</strong> Requires a warm cache. Run <code>lagoon shell</code> once first to build the environment.</li>
+      </ul>
+    </section>
+
+    <!-- VERIFY -->
+    <section id="verify">
+      <h2>lagoon verify</h2>
+      <p>
+        Cryptographic tamper detection. Proves that your environment hasn't drifted or been modified.
+      </p>
+      <div class="cmd"><span class="prompt">$</span> lagoon verify</div>
+      <p>
+        <strong>How it works:</strong>
+      </p>
+      <ul>
+        <li><strong>Fingerprinting:</strong> Calculates a combined SHA256 of all nix store paths in your environment's closure.</li>
+        <li><strong>Baseline:</strong> The first run sets a baseline in <code>~/.cache/lagoon/</code>.</li>
+        <li><strong>Validation:</strong> Subsequent runs compare the live closure against the baseline and fail if a single byte differs.</li>
+        <li><strong>Reset:</strong> To set a new baseline, delete the <code>closure.fingerprint</code> file in the project's cache directory.</li>
+      </ul>
+    </section>
+
+    <!-- LINT -->
+    <section id="lint">
+      <h2>lagoon lint</h2>
+      <p>
+        Validates the structure and packages of your <code>lagoon.toml</code>.
+      </p>
+      <div class="cmd"><span class="prompt">$</span> lagoon lint</div>
+      <p>
+        <strong>What it checks:</strong>
+      </p>
+      <ul>
+        <li><strong>Schema:</strong> Ensures all required fields (packages, commit, sha256) are present and valid.</li>
+        <li><strong>Package Existence:</strong> Queries nixpkgs live to verify every package in your list actually exists.</li>
+        <li><strong>Offline Mode:</strong> If no internet is detected, it skips existence checks and warns instead of failing.</li>
+      </ul>
+    </section>
+
+    <!-- STATUS -->
+    <section id="status">
+      <h2>lagoon status</h2>
+      <p>
+        Provides a quick overview of the current project's environment status.
+      </p>
+      <div class="cmd"><span class="prompt">$</span> lagoon status</div>
+      <p>
+        Shows the list of packages, the active profile, and whether the environment is currently cached and ready for instant start.
+      </p>
+    </section>
+
+    <!-- STATS -->
+    <section id="stats">
+      <h2>lagoon stats</h2>
+      <p>
+        Live resource monitoring for running sandboxes.
+      </p>
+      <div class="cmd"><span class="prompt">$</span> lagoon stats</div>
+      <p>
+        Displays a table of all active lagoon processes, including PID, memory usage (VmRSS), packages, and project paths. <em>Linux only.</em>
+      </p>
+    </section>
+
+    <!-- EXPORT/IMPORT -->
+    <section id="export-import">
+      <h2>lagoon export/import</h2>
+      <p>
+        Snapshots your environment for air-gapped deployments or offline transfer.
+      </p>
+      
+      <h3>Export</h3>
+      <p>Dumps the entire environment closure to a <code>.nar</code> file.</p>
+      <div class="cmd"><span class="prompt">$</span> lagoon export > environment.nar</div>
+      
+      <h3>Import</h3>
+      <p>Restores an exported closure on a machine without internet access.</p>
+      <div class="cmd"><span class="prompt">$</span> lagoon import environment.nar</div>
+      
+      <p>
+        <strong>Use cases:</strong> Raspberry Pis behind firewalls, secure CI environments, or lab machines with no external connectivity.
+      </p>
+    </section>
+
+    <!-- CLEAN -->
+    <section id="clean">
+      <h2>lagoon clean</h2>
+
+      <p>
+        Removes the cached environment for the current project.
+      </p>
+
+      <div class="cmd"><span class="prompt">$</span> lagoon clean</div>
+
+      <p>
+        Use this to force a rebuild. The next <code>lagoon shell</code> will regenerate everything.
+      </p>
+
+      <div class="note">
+        <strong>Cache location:</strong> <code>~/.cache/lagoon/</code>. Each project gets a hash-based subdirectory.
+      </div>
+    </section>
+
+    <!-- CONFIG -->
+    <section id="config">
+      <h2>Configuration</h2>
+
+      <p>
+        lagoon reads a single config file: <code>lagoon.toml</code>
+      </p>
+
+      <h3>Default location</h3>
+      <p>
+        <code>lagoon.toml</code> in your project root (same directory where you run <code>lagoon init</code>).
+      </p>
+
+      <h3>File format</h3>
+      <div class="toml-block">
+<span class="toml-comment"># lagoon.toml</span>
+<span class="toml-key">packages</span> = [<span class="toml-str">"python311"</span>, <span class="toml-str">"ffmpeg"</span>, <span class="toml-str">"cowsay"</span>]
+<br>
+<span class="toml-key">nixpkgs_commit</span> = <span class="toml-str">"26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915"</span>
+<span class="toml-key">nixpkgs_sha256</span> = <span class="toml-str">"1knl8dcr5ip70a2vbky3q844212crwrvybyw2nhfmgm1mvqry963"</span>
+<span class="toml-key">profile</span> = <span class="toml-str">"minimal"</span>
+<span class="toml-key">on_enter</span> = <span class="toml-str">"source .venv/bin/activate"</span>
+      </div>
+
+      <h3>Options</h3>
+
+      <div class="box" style="margin-top: 16px;">
+        <h4 style="margin-top: 0;"><code>packages</code></h4>
+        <p><strong>Required.</strong> List of nix package names. Space-separated in <code>lagoon init</code>, array in TOML.</p>
+      </div>
+
+      <div class="box">
+        <h4 style="margin-top: 0;"><code>nixpkgs_commit</code></h4>
+        <p><strong>Required.</strong> Git commit hash of nixpkgs-unstable. Auto-set by <code>lagoon init</code>.</p>
+      </div>
+
+      <div class="box">
+        <h4 style="margin-top: 0;"><code>nixpkgs_sha256</code></h4>
+        <p><strong>Required.</strong> SHA256 of the nixpkgs tarball. Auto-set by <code>lagoon init</code>.</p>
+      </div>
+
+      <div class="box">
+        <h4 style="margin-top: 0;"><code>profile</code></h4>
+        <p><strong>Optional.</strong> Either <code>"minimal"</code> (no network) or <code>"network"</code> (network enabled). Default: <code>"minimal"</code>.</p>
+      </div>
+
+      <div class="box">
+        <h4 style="margin-top: 0;"><code>on_enter</code></h4>
+        <p><strong>Optional.</strong> A shell command to run every time the sandbox starts. For interactive shells, it runs before handing control to bash. For <code>--cmd</code>, it runs before the command executes. Example: <code>on_enter = "source .venv/bin/activate"</code>.</p>
+      </div>
+    </section>
+
+    <!-- TOML FORMAT -->
+    <section id="toml-format">
+      <h2>lagoon.toml Format Reference</h2>
+
+      <h3>Full example</h3>
+      <div class="toml-block">
+<span class="toml-comment"># This environment has Python, FFmpeg, and network access</span>
+<span class="toml-key">packages</span> = [<span class="toml-str">"python311"</span>, <span class="toml-str">"pip"</span>, <span class="toml-str">"ffmpeg"</span>]
+<br>
+<span class="toml-comment"># Pinned to a specific nixpkgs-unstable commit</span>
+<span class="toml-key">nixpkgs_commit</span> = <span class="toml-str">"26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915"</span>
+<span class="toml-key">nixpkgs_sha256</span> = <span class="toml-str">"1knl8dcr5ip70a2vbky3q844212crwrvybyw2nhfmgm1mvqry963"</span>
+<span class="toml-comment"># Network is enabled for this environment</span>
+<span class="toml-key">profile</span> = <span class="toml-str">"network"</span>
+      </div>
+
+      <h3>Minimal example</h3>
+      <div class="toml-block">
+<span class="toml-key">packages</span> = [<span class="toml-str">"cowsay"</span>]
+<br>
+<span class="toml-key">nixpkgs_commit</span> = <span class="toml-str">"26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915"</span>
+<span class="toml-key">nixpkgs_sha256</span> = <span class="toml-str">"1knl8dcr5ip70a2vbky3q844212crwrvybyw2nhfmgm1mvqry963"</span>
+<span class="toml-key">profile</span> = <span class="toml-str">"minimal"</span>
+      </div>
+
+      <div class="note">
+        <strong>Don't edit commit/sha256 manually.</strong> Run <code>lagoon init</code> to update safely.
+      </div>
+    </section>
+
+    <!-- PACKAGES -->
+    <section id="packages">
+      <h2>Finding Packages</h2>
+
+      <p>
+        Package names come from the Nix package collection.
+      </p>
+
+      <h3>Search for packages</h3>
+      <p>
+        Visit <a href="https://search.nixos.org/packages" style="color:var(--accent2); font-weight:600;">search.nixos.org/packages</a> and search by name.
+      </p>
+
+      <p>
+        Examples:
+      </p>
+      <ul>
+        <li><code>python311</code> — Python 3.11</li>
+        <li><code>nodejs</code> — Node.js</li>
+        <li><code>postgresql</code> — PostgreSQL database</li>
+        <li><code>rustup</code> — Rust toolchain</li>
+        <li><code>gcc</code> — C/C++ compiler</li>
+        <li><code>git</code> — Version control</li>
+      </ul>
+
+      <h3>Package naming</h3>
+      <p>
+        Nix package names usually match their project names, but not always. 
+        Use the search to find the exact name.
+      </p>
+
+      <div class="note">
+        <strong>Typos are caught:</strong> If you misspell a package name, lagoon will show a clean error message.
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq">
+      <h2>FAQ</h2>
+
+      <h3>Why is first run slow on my Raspberry Pi?</h3>
+      <p>
+        Some packages aren't in the binary cache for ARM and compile from source. 
+        After that, runs are instant from cache.
+      </p>
+
+      <h3>How do I use lagoon in CI/CD?</h3>
+      <p>
+        Commit <code>lagoon.toml</code> to your repo. 
+        In CI, install lagoon, then use:
+      </p>
+      <div class="cmd"><span class="prompt">$</span> lagoon shell --cmd "make test"</div>
+
+      <h3>Can I add persistent home directory files?</h3>
+      <p>
+        No. Home is ephemeral (tmpfs). 
+        Project files go in <code>/workspace</code> (your project directory) and persist.
+      </p>
+
+      <h3>Does lagoon work on macOS?</h3>
+      <p>
+        No. lagoon requires Linux (arm64 or amd64). It uses Linux-specific tools: bubblewrap and user namespaces.
+      </p>
+
+      <h3>Can I modify packages after <code>lagoon init</code>?</h3>
+      <p>
+        Yes. Edit <code>lagoon.toml</code> directly:
+      </p>
+      <ul>
+        <li>Change the <code>packages</code> list</li>
+        <li>Set <code>profile = "network"</code> if needed</li>
+        <li>Don't edit commit/sha256 (run <code>lagoon init</code> instead)</li>
+      </ul>
+
+      <h3>What's the difference between <code>lagoon shell</code> and Docker?</h3>
+      <div class="grid-2">
+        <div class="box">
+          <h4>lagoon</h4>
+          <ul style="font-size:0.9rem; margin:0;">
+            <li>No daemon</li>
+            <li>No root required</li>
+            <li>Instant warm starts (Benchmarks: Raspberry Pi 4, Ubuntu 24.04 LTS)</li>
+            <li>Reproducible via Nix</li>
+            <li>Linux only</li>
+          </ul>
+        </div>
+        <div class="box">
+          <h4>Docker</h4>
+          <ul style="font-size:0.9rem; margin:0;">
+            <li>Daemon required</li>
+            <li>Needs root or docker group</li>
+            <li>Slower starts (15s+)</li>
+            <li>Image updates drift</li>
+            <li>Cross-platform</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Can I use lagoon on a Raspberry Pi?</h3>
+      <p>
+        Yes! That's the primary target. Install bubblewrap and nix, then <code>curl ... | bash</code> to install lagoon.
+      </p>
+
+      <h3>What if preflight checks fail?</h3>
+      <p>
+        lagoon checks for:
+      </p>
+      <ul>
+        <li><strong>bubblewrap:</strong> Install with <code>sudo apt install bubblewrap</code></li>
+        <li><strong>nix:</strong> Install with <code>sh &lt;(curl -L https://nixos.org/nix/install) --no-daemon</code></li>
+        <li><strong>user namespaces:</strong> Check <code>/proc/sys/kernel/unprivileged_userns_clone</code> — should be 1 or absent</li>
+      </ul>
+
+      <h3>Where is the nix cache stored?</h3>
+      <p>
+        Nix stores packages in <code>/nix/store</code> (system-wide, shared). 
+        lagoon caches resolved environments in <code>~/.cache/lagoon/</code>.
+      </p>
+
+      <h3>Can I share my lagoon.toml with my team?</h3>
+      <p>
+        Yes! Commit it to version control. Everyone who runs <code>lagoon shell</code> gets the same environment.
+      </p>
+
+      <h3>How do I troubleshoot?</h3>
+      <p>
+        If an environment fails to build or start, lagoon prints the underlying error from <code>nix-shell</code> or <code>bwrap</code> below a clear separator. 
+        Common fixes:
+      </p>
+      <ul>
+        <li><strong>Package not found:</strong> Verify the spelling at <a href="https://search.nixos.org/packages">search.nixos.org</a> or run <code>lagoon lint</code>.</li>
+        <li><strong>Network errors:</strong> Ensure you have an internet connection for the first run, or set <code>profile = "network"</code> if your build requires it.</li>
+        <li><strong>Stale cache:</strong> Run <code>lagoon clean</code> to force a fresh build of the environment.</li>
+      </ul>
+
+    </section>
+
+    <section style="margin-top: 100px; padding-top: 48px; border-top: 1px solid rgba(0,0,0,0.08); color: var(--fg2); font-size: 0.95rem; line-height: 1.8;">
+      <p>
+        Have a question? Open an issue on <a href="https://github.com/imraghavojha/lagoon" style="color:var(--accent2); font-weight:700; text-decoration:none;">GitHub</a>.
+      </p>
+    </section>
+
+  </main>
+
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <a href="index.html" class="logo" style="font-size:1.2rem; font-family:var(--serif);">lagoon<span style="color:var(--accent)">_</span></a>
+  <span style="color:var(--fg2); font-size:0.82rem;">no docker. no root. no daemons.</span>
+  <div class="footer-links">
+    <a href="https://github.com/imraghavojha/lagoon">GitHub</a>
+    <a href="lagoon-docs.html" class="active">Docs</a>
+    <a href="https://search.nixos.org/packages">Packages ↗</a>
+  </div>
+</footer>
+
+<script>
+// Code Block Copy Buttons
+document.querySelectorAll('.cmd, .toml-block').forEach(block => {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'code-wrapper';
+  block.parentNode.insertBefore(wrapper, block);
+  wrapper.appendChild(block);
+
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn';
+  btn.textContent = 'copy';
+  wrapper.appendChild(btn);
+
+  btn.addEventListener('click', () => {
+    let text = block.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'copied!';
+      btn.style.color = 'var(--accent)';
+      btn.style.borderColor = 'var(--accent)';
+      setTimeout(() => {
+        btn.textContent = 'copy';
+        btn.style.color = '';
+        btn.style.borderColor = '';
+      }, 2000);
+    });
+  });
+});
+
+// Mobile Menu Toggle
+const menuToggle = document.getElementById('menuToggle');
+const navLinksContainer = document.getElementById('navLinks');
+
+menuToggle.addEventListener('click', () => {
+  navLinksContainer.classList.toggle('open');
+  const spans = menuToggle.querySelectorAll('span');
+  if (navLinksContainer.classList.contains('open')) {
+    spans[0].style.transform = 'rotate(45deg) translate(5px, 5px)';
+    spans[1].style.opacity = '0';
+    spans[2].style.transform = 'rotate(-45deg) translate(5px, -5px)';
+  } else {
+    spans[0].style.transform = 'none';
+    spans[1].style.opacity = '1';
+    spans[2].style.transform = 'none';
+  }
+});
+
+// Close menu on link click
+document.querySelectorAll('.nav-links a').forEach(link => {
+  link.addEventListener('click', () => {
+    navLinksContainer.classList.remove('open');
+    const spans = menuToggle.querySelectorAll('span');
+    spans[0].style.transform = 'none';
+    spans[1].style.opacity = '1';
+    spans[2].style.transform = 'none';
+  });
+});
+
+// Sidebar active link tracking
+const sideNavLinks = document.querySelectorAll('.sidebar-nav a');
+const sections = document.querySelectorAll('main > section');
+
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(section => {
+    const rect = section.getBoundingClientRect();
+    if (rect.top <= 120) current = section.id;
+  });
+
+  sideNavLinks.forEach(link => {
+    link.classList.remove('active');
+    if (link.getAttribute('href') === '#' + current) {
+      link.classList.add('active');
+    }
+  });
+});
+
+// Anchor link smoothing
+sideNavLinks.forEach(link => {
+  link.addEventListener('click', (e) => {
+    const href = link.getAttribute('href');
+    if (href !== '#') {
+      e.preventDefault();
+      const target = document.querySelector(href);
+      if (target) {
+        const headerOffset = 80;
+        const elementPosition = target.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
+        });
+      }
+    }
+  });
+});
+</script>
+
+</body>
+</html>
