@@ -47,6 +47,28 @@ func TestCreateGCRootsDeduplicates(t *testing.T) {
 	}
 }
 
+func TestCreateGCRootsRestoresDeletedSymlink(t *testing.T) {
+	dir := t.TempDir()
+	env := &ResolvedEnv{PATH: "/nix/store/abc-python/bin"}
+
+	CreateGCRoots(dir, env)
+	gcDir := filepath.Join(dir, "gcroots")
+	entries, _ := os.ReadDir(gcDir)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 symlink after first call, got %d", len(entries))
+	}
+
+	// delete the symlink
+	os.Remove(filepath.Join(gcDir, entries[0].Name()))
+
+	// second call must restore it
+	CreateGCRoots(dir, env)
+	entries, _ = os.ReadDir(gcDir)
+	if len(entries) != 1 {
+		t.Errorf("expected symlink to be restored, got %d entries", len(entries))
+	}
+}
+
 func TestCreateGCRootsSkipsNonNixPaths(t *testing.T) {
 	dir := t.TempDir()
 	env := &ResolvedEnv{

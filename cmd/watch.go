@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -60,15 +61,20 @@ func runWatch(cmd *cobra.Command, args []string) error {
 	}
 	defer watcher.Close()
 
-	if err := watcher.Add(absPath); err != nil {
-		return fmt.Errorf("watching %s: %w", absPath, err)
-	}
+	// watch all subdirectories so changes in src/, tests/, etc. are caught
+	filepath.WalkDir(absPath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || !d.IsDir() {
+			return nil
+		}
+		return watcher.Add(path)
+	})
 
 	fmt.Printf("%s watching %s\n\n", ok("→"), absPath)
 
 	var (
-		mu      sync.Mutex
-		proc    *exec.Cmd
+		mu       sync.Mutex
+		proc     *exec.Cmd
+		procDone chan struct{} // closed when the current process exits
 		debounce *time.Timer
 	)
 
@@ -79,19 +85,35 @@ func runWatch(cmd *cobra.Command, args []string) error {
 			fmt.Fprintln(os.Stderr, fail("✗")+" "+err.Error())
 			return
 		}
+		done := make(chan struct{})
+		go func() { p.Wait(); close(done) }() // sole caller of Wait for this process
 		mu.Lock()
 		proc = p
+		procDone = done
 		mu.Unlock()
-		go p.Wait() // reap the process when it exits
+	}
+
+	// stopCurrent signals the running process and waits for it to exit (500ms timeout).
+	stopCurrent := func() {
+		mu.Lock()
+		p, done := proc, procDone
+		proc = nil
+		procDone = nil
+		mu.Unlock()
+		if p == nil || p.Process == nil {
+			return
+		}
+		p.Process.Signal(syscall.SIGTERM)
+		select {
+		case <-done:
+		case <-time.After(500 * time.Millisecond):
+			p.Process.Kill()
+			<-done
+		}
 	}
 
 	restart := func() {
-		mu.Lock()
-		p := proc
-		mu.Unlock()
-		if p != nil && p.Process != nil {
-			p.Process.Signal(syscall.SIGTERM)
-		}
+		stopCurrent()
 		fmt.Printf("\n%s file changed — restarting\n", warn("!"))
 		launch()
 	}
@@ -104,13 +126,7 @@ func runWatch(cmd *cobra.Command, args []string) error {
 	for {
 		select {
 		case <-sigs:
-			mu.Lock()
-			p := proc
-			mu.Unlock()
-			if p != nil && p.Process != nil {
-				p.Process.Signal(syscall.SIGTERM)
-				p.Wait()
-			}
+			stopCurrent()
 			return nil
 
 		case event, ok := <-watcher.Events:

@@ -167,5 +167,9 @@ func RunPackageSearch() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return final.(searchModel).selected, nil
+	sm, ok := final.(searchModel)
+	if !ok {
+		return nil, fmt.Errorf("unexpected model type returned: %T", final)
+	}
+	return sm.selected, nil
 }

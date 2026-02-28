@@ -1,8 +1,11 @@
 package nix
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/imraghavojha/lagoon/internal/config"
 )
 
 func TestParseResolveOutputNormal(t *testing.T) {
@@ -55,6 +58,27 @@ func TestParseResolveOutputNoNixStorePaths(t *testing.T) {
 	_, err := parseResolveOutput(stdout)
 	if err == nil {
 		t.Error("expected error when PATH has no nix store paths")
+	}
+}
+
+// TestReproducibleShellNix: the core reproducibility claim — same config, same hash, any machine.
+func TestReproducibleShellNix(t *testing.T) {
+	cfg := &config.Config{
+		Packages:      []string{"python311", "cowsay"},
+		NixpkgsCommit: "abc123",
+		NixpkgsSHA256: "sha256abc",
+		Profile:       "minimal",
+	}
+	sum1, err := GenerateShellNix(cfg, filepath.Join(t.TempDir(), "shell.nix"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum2, err := GenerateShellNix(cfg, filepath.Join(t.TempDir(), "shell.nix"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sum1 != sum2 {
+		t.Error("same config must produce identical shell.nix hash regardless of directory")
 	}
 }
 
