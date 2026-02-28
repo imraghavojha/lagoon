@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 
 	"github.com/imraghavojha/lagoon/internal/config"
@@ -11,35 +12,24 @@ import (
 )
 
 // Enter replaces the current process with a bwrap sandbox.
-// when the user exits the shell, they're back on the host — no cleanup needed.
-func Enter(cfg *config.Config, env *nix.ResolvedEnv, projectPath string) error {
+// cmd is a one-off command to run; empty string opens an interactive shell.
+// extraEnvs are additional KEY=VALUE pairs injected into the sandbox.
+func Enter(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd string, extraEnvs []string) error {
 	bwrap, err := exec.LookPath("bwrap")
 	if err != nil {
 		return fmt.Errorf("bwrap not found: %w", err)
 	}
 
-	args := buildArgs(cfg, env, projectPath)
+	args := buildArgs(cfg, env, projectPath, cmd, extraEnvs)
 
-	// grab TERM and USER from the host before we build the clean env slice
-	term := os.Getenv("TERM")
-	user := os.Getenv("USER")
-
-	// only pass what the sandbox needs — everything else leaks host state
-	sandboxEnv := []string{
-		"HOME=/home",
-		"PATH=" + env.PATH,
-		"TERM=" + term,
-		"USER=" + user,
-		"LANG=C.UTF-8",
-	}
-
-	// syscall.Exec replaces this process image entirely
-	return syscall.Exec(bwrap, append([]string{"bwrap"}, args...), sandboxEnv)
+	// sandbox env is set via --clearenv + --setenv inside buildArgs.
+	// bwrap's own process env (third arg) doesn't affect the sandboxed shell.
+	return syscall.Exec(bwrap, append([]string{"bwrap"}, args...), nil)
 }
 
 // buildArgs constructs the full bwrap argument list.
 // order matters here — bwrap processes flags left to right.
-func buildArgs(cfg *config.Config, env *nix.ResolvedEnv, projectPath string) []string {
+func buildArgs(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd string, extraEnvs []string) []string {
 	args := []string{
 		// nix store is read-only — packages live here
 		"--ro-bind", "/nix/store", "/nix/store",
@@ -97,8 +87,20 @@ func buildArgs(cfg *config.Config, env *nix.ResolvedEnv, projectPath string) []s
 		args = append(args, "--share-net")
 	}
 
-	// the shell to launch inside the sandbox
-	args = append(args, "--", env.BashPath)
+	// inject caller-provided env vars (KEY=VALUE)
+	for _, kv := range extraEnvs {
+		parts := strings.SplitN(kv, "=", 2)
+		if len(parts) == 2 {
+			args = append(args, "--setenv", parts[0], parts[1])
+		}
+	}
+
+	// launch an interactive shell, or run the given command non-interactively
+	if cmd != "" {
+		args = append(args, "--", env.BashPath, "-c", cmd)
+	} else {
+		args = append(args, "--", env.BashPath)
+	}
 
 	return args
 }

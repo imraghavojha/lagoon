@@ -15,10 +15,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	cmdFlag  string
+	envFlags []string
+)
+
 var shellCmd = &cobra.Command{
 	Use:   "shell",
 	Short: "enter the sandboxed environment defined in lagoon.toml",
 	RunE:  runShell,
+}
+
+func init() {
+	shellCmd.Flags().StringVar(&cmdFlag, "cmd", "", "run a one-off command instead of an interactive shell")
+	shellCmd.Flags().StringArrayVarP(&envFlags, "env", "e", nil, "set env var in sandbox (KEY=VALUE)")
 }
 
 func runShell(cmd *cobra.Command, args []string) error {
@@ -78,7 +88,7 @@ func runShell(cmd *cobra.Command, args []string) error {
 	fmt.Println("  type 'exit' to return to host shell\n")
 
 	// replace this process with bwrap — no cleanup needed on exit
-	return sandbox.Enter(cfg, resolved, absPath)
+	return sandbox.Enter(cfg, resolved, absPath, cmdFlag, envFlags)
 }
 
 // projectCacheDir returns ~/.cache/lagoon/<8-char hash of project path>
