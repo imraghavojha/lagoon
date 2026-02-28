@@ -127,6 +127,9 @@ func runShell(cmd *cobra.Command, args []string) error {
 	fmt.Println("  type 'exit' to return to host shell")
 	fmt.Println()
 
+	// record pid so 'lagoon stats' can find this sandbox (same pid after syscall.Exec)
+	writePIDFile(cacheDir, absPath, cfg.Packages)
+
 	// replace this process with bwrap — no cleanup needed on exit
 	return sandbox.Enter(cfg, resolved, absPath, cmdFlag, memFlag, envFlags)
 }
