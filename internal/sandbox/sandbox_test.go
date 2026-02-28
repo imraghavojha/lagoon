@@ -158,3 +158,64 @@ func TestEnterNoBwrap(t *testing.T) {
 		t.Errorf("error should mention bwrap, got: %v", err)
 	}
 }
+
+// on_enter hook tests
+
+func fakeCfgWithHook(profile, hook string) *config.Config {
+	return &config.Config{Profile: profile, Packages: []string{"cowsay"}, OnEnter: hook}
+}
+
+func TestBuildArgsOnEnterInteractive(t *testing.T) {
+	env := fakeEnv()
+	args := buildArgs(fakeCfgWithHook("minimal", "source .env"), env, "/proj", "", nil)
+	// must end with: -- bash -c "source .env; exec bash"
+	n := len(args)
+	if n < 4 {
+		t.Fatalf("too few args: %v", args)
+	}
+	if args[n-4] != "--" || args[n-3] != env.BashPath || args[n-2] != "-c" {
+		t.Errorf("expected [-- bash -c ...], got %v", args[n-4:])
+	}
+	if !strings.Contains(args[n-1], "source .env") {
+		t.Errorf("on_enter hook missing from arg: %q", args[n-1])
+	}
+	if !strings.Contains(args[n-1], "exec "+env.BashPath) {
+		t.Errorf("exec bash missing from hook arg: %q", args[n-1])
+	}
+}
+
+func TestBuildArgsOnEnterWithCommand(t *testing.T) {
+	env := fakeEnv()
+	args := buildArgs(fakeCfgWithHook("minimal", "source .env"), env, "/proj", "cowsay hi", nil)
+	n := len(args)
+	if args[n-2] != "-c" {
+		t.Errorf("expected -c flag, got %v", args[n-2:])
+	}
+	if !strings.Contains(args[n-1], "source .env") {
+		t.Errorf("on_enter missing: %q", args[n-1])
+	}
+	if !strings.Contains(args[n-1], "cowsay hi") {
+		t.Errorf("command missing: %q", args[n-1])
+	}
+}
+
+func TestBuildArgsNoHookNoChange(t *testing.T) {
+	env := fakeEnv()
+	args := buildArgs(fakeCfg("minimal"), env, "/proj", "", nil)
+	n := len(args)
+	// no hook → ends with [-- bash] (no -c)
+	if args[n-2] != "--" || args[n-1] != env.BashPath {
+		t.Errorf("without hook, expected [-- bash], got %v", args[n-2:])
+	}
+}
+
+func TestStartNoBwrap(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	_, err := Start(fakeCfg("minimal"), fakeEnv(), "/tmp", "echo hi", "", nil)
+	if err == nil {
+		t.Fatal("expected error when bwrap not found")
+	}
+	if !strings.Contains(err.Error(), "bwrap") {
+		t.Errorf("error should mention bwrap, got: %v", err)
+	}
+}

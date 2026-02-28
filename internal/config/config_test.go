@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -53,6 +54,48 @@ func TestReadBadTOML(t *testing.T) {
 	_, err := Read(path)
 	if err == nil {
 		t.Fatal("expected error for invalid toml")
+	}
+}
+
+func TestOnEnterRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "lagoon.toml")
+
+	cfg := &Config{
+		Packages:      []string{"cowsay"},
+		NixpkgsCommit: "abc",
+		NixpkgsSHA256: "sha",
+		Profile:       "minimal",
+		OnEnter:       "source .env",
+	}
+	if err := Write(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Read(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.OnEnter != "source .env" {
+		t.Errorf("on_enter: expected 'source .env', got %q", got.OnEnter)
+	}
+}
+
+func TestOnEnterOmittedWhenEmpty(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "lagoon.toml")
+
+	cfg := &Config{
+		Packages:      []string{"cowsay"},
+		NixpkgsCommit: "abc",
+		NixpkgsSHA256: "sha",
+		Profile:       "minimal",
+	}
+	if err := Write(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(path)
+	if strings.Contains(string(b), "on_enter") {
+		t.Error("on_enter must not appear in toml when empty")
 	}
 }
 
