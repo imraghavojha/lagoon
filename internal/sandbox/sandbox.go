@@ -57,7 +57,7 @@ func Start(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd, memory st
 	} else {
 		c = exec.Command(bwrap, bwrapArgs...)
 	}
-	c.Stdin = os.Stdin
+	// watch mode runs non-interactive commands — no stdin so the parent keeps the terminal
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	return c, c.Start()

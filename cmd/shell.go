@@ -141,7 +141,10 @@ func projectCacheDir(absPath string) string {
 	id := fmt.Sprintf("%x", h[:4])
 	base := os.Getenv("XDG_CACHE_HOME")
 	if base == "" {
-		home, _ := os.UserHomeDir()
+		home, err := os.UserHomeDir()
+		if err != nil {
+			home = os.TempDir()
+		}
 		base = filepath.Join(home, ".cache")
 	}
 	return filepath.Join(base, "lagoon", id)
