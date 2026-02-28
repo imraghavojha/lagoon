@@ -13,7 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-const nixSearchURL = "https://search.nixos.org/backend/latest-42-nixpkgs-unstable/nix-packages/_search"
+var nixSearchURL = "https://search.nixos.org/backend/latest-42-nixpkgs-unstable/nix-packages/_search"
 
 type nixPkg struct{ name, desc string }
 
