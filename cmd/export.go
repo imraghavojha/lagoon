@@ -24,6 +24,11 @@ after export.`,
 }
 
 func runExport(cmd *cobra.Command, args []string) error {
+	// refuse to dump binary NAR data to a terminal — caller must redirect
+	if info, err := os.Stdout.Stat(); err == nil && info.Mode()&os.ModeCharDevice != 0 {
+		return fmt.Errorf("stdout is a terminal — redirect to a file: lagoon export > myenv.nar")
+	}
+
 	cfg, err := config.Read(config.Filename)
 	if err != nil {
 		return fmt.Errorf("no lagoon.toml found — run 'lagoon init' first")

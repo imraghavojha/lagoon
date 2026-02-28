@@ -3,3 +3,5 @@ lagoon-mac
 lagoon-linux-arm64
 lagoon-linux-amd64
 .DS_Store
+dist/
+examples/
