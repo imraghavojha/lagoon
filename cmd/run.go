@@ -11,9 +11,19 @@ var runCmd = &cobra.Command{
 	Short: "run a one-off command in the sandbox (like 'shell --cmd')",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cmdFlag = strings.Join(args, " ")
+		cmdFlag = shellQuoteArgs(args)
 		return runShell(cmd, nil)
 	},
+}
+
+// shellQuoteArgs joins args into a bash -c safe string — each arg is single-quoted.
+// single quotes inside args are handled via the '\'' technique.
+func shellQuoteArgs(args []string) string {
+	escaped := make([]string, len(args))
+	for i, a := range args {
+		escaped[i] = "'" + strings.ReplaceAll(a, "'", `'\''`) + "'"
+	}
+	return strings.Join(escaped, " ")
 }
 
 func init() {

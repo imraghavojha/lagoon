@@ -80,9 +80,28 @@ func runVerify(cmd *cobra.Command, args []string) error {
 	return fmt.Errorf("verification failed")
 }
 
-// closurePaths returns all transitive nix store paths the environment needs.
+// envStorePaths extracts the top-level nix store paths from the environment PATH.
+// each PATH entry is a <storepath>/bin dir — taking its parent gives the store path.
+func envStorePaths(env *nix.ResolvedEnv) []string {
+	seen := map[string]bool{}
+	var paths []string
+	for _, entry := range strings.Split(env.PATH, ":") {
+		sp := filepath.Dir(entry)
+		if strings.HasPrefix(sp, "/nix/store/") && !seen[sp] {
+			seen[sp] = true
+			paths = append(paths, sp)
+		}
+	}
+	return paths
+}
+
+// closurePaths returns the full transitive nix closure for all packages in the environment.
 func closurePaths(resolved *nix.ResolvedEnv) ([]string, error) {
-	out, err := exec.Command("nix-store", "-qR", resolved.BashPath, resolved.EnvPath).Output()
+	roots := envStorePaths(resolved)
+	if len(roots) == 0 {
+		return nil, fmt.Errorf("no nix store paths in environment PATH")
+	}
+	out, err := exec.Command("nix-store", append([]string{"-qR"}, roots...)...).Output()
 	if err != nil {
 		return nil, err
 	}

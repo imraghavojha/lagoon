@@ -109,6 +109,7 @@ func runShell(cmd *cobra.Command, args []string) error {
 		}
 		resolved = r.env
 		_ = nix.SaveCache(cacheDir, resolved, sum)
+		nix.CreateGCRoots(cacheDir, resolved)
 	} else {
 		fmt.Println(ok("✓") + " environment ready")
 	}
