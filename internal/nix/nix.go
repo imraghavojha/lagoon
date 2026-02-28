@@ -1,8 +1,10 @@
 package nix
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -48,18 +50,42 @@ func GenerateShellNix(cfg *config.Config, outPath string) (string, error) {
 // missingAttrRe matches the nix error for unknown package names
 var missingAttrRe = regexp.MustCompile(`attribute '([^']+)' missing`)
 
+// nixKeywords are the substrings we surface from nix stderr so users see progress
+var nixKeywords = []string{"fetching", "downloading", "building", "copying", "error", "warning"}
+
 // Resolve runs nix-shell and grabs the bash path, env path, and PATH value.
-// we run 'which bash && which env && echo $PATH' inside the nix shell to get them.
-// nix's build status messages go to stderr — we only parse stdout so they don't mix in.
+// nix stderr is filtered and streamed so users see meaningful progress lines
+// instead of a frozen terminal during long first-run builds.
 func Resolve(shellNixPath string) (*ResolvedEnv, error) {
-	var stderr bytes.Buffer
+	var stderrBuf bytes.Buffer
+	pr, pw := io.Pipe()
 	cmd := exec.Command("nix-shell", shellNixPath, "--run",
 		"which bash && which env && echo $PATH")
-	cmd.Stderr = &stderr
+	cmd.Stderr = io.MultiWriter(&stderrBuf, pw)
+
+	// stream matching nix stderr lines dimmed to stdout
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		scanner := bufio.NewScanner(pr)
+		for scanner.Scan() {
+			line := scanner.Text()
+			lower := strings.ToLower(line)
+			for _, kw := range nixKeywords {
+				if strings.Contains(lower, kw) {
+					fmt.Printf("\033[2m  nix │ %s\033[0m\n", line)
+					break
+				}
+			}
+		}
+	}()
 
 	stdout, err := cmd.Output()
+	pw.Close()
+	<-done
+
 	if err != nil {
-		return nil, parseNixError(stderr.Bytes())
+		return nil, parseNixError(stderrBuf.Bytes())
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(stdout)), "\n")
