@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/imraghavojha/lagoon/internal/config"
 	"github.com/imraghavojha/lagoon/internal/nix"
@@ -44,18 +43,15 @@ func runExport(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no cached environment — run 'lagoon shell' first to build it")
 	}
 
-	// get the full transitive closure of all store paths the environment needs
-	closeOut, err := exec.Command("nix-store", "-qR", resolved.BashPath, resolved.EnvPath).Output()
+	paths, err := closurePaths(resolved)
 	if err != nil {
 		return fmt.Errorf("nix-store -qR: %w", err)
 	}
-	paths := strings.Fields(string(closeOut))
 
 	fmt.Fprintln(os.Stderr, ok("→")+" exporting "+fmt.Sprint(len(paths))+" store paths…")
 
 	// stream the export to stdout so the caller can pipe or redirect it
-	exportArgs := append([]string{"--export"}, paths...)
-	exp := exec.Command("nix-store", exportArgs...)
+	exp := exec.Command("nix-store", append([]string{"--export"}, paths...)...)
 	exp.Stdout = os.Stdout
 	exp.Stderr = os.Stderr
 	return exp.Run()

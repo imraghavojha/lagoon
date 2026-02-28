@@ -94,11 +94,18 @@ func Resolve(shellNixPath string, progress chan<- string) (*ResolvedEnv, error) 
 		return nil, parseNixError(stderrBuf.Bytes())
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(stdout)), "\n")
+	return parseResolveOutput(string(stdout))
+}
+
+// parseResolveOutput parses stdout from: which bash && which env && echo $PATH
+// finds bash/env by suffix match rather than position so stray lines don't break it.
+func parseResolveOutput(stdout string) (*ResolvedEnv, error) {
+	lines := strings.Split(strings.TrimSpace(stdout), "\n")
 	if len(lines) < 3 {
-		return nil, fmt.Errorf("nix-shell output was unexpected:\n%s", string(stdout))
+		return nil, fmt.Errorf("nix-shell output was unexpected:\n%s", stdout)
 	}
 
+	// PATH is always the last line
 	rawPath := strings.TrimSpace(lines[len(lines)-1])
 
 	// only keep nix store paths — host paths like /usr/bin leak state into the sandbox
@@ -108,16 +115,25 @@ func Resolve(shellNixPath string, progress chan<- string) (*ResolvedEnv, error) 
 			nixParts = append(nixParts, p)
 		}
 	}
-
 	if len(nixParts) == 0 {
 		return nil, fmt.Errorf("no nix store paths found in PATH — nix-shell may have failed silently")
 	}
 
-	return &ResolvedEnv{
-		BashPath: strings.TrimSpace(lines[0]),
-		EnvPath:  strings.TrimSpace(lines[1]),
-		PATH:     strings.Join(nixParts, ":"),
-	}, nil
+	// find bash and env by suffix — position-based parsing breaks if nix prints extra lines
+	var bash, env string
+	for _, l := range lines[:len(lines)-1] {
+		l = strings.TrimSpace(l)
+		if bash == "" && strings.HasSuffix(l, "/bash") {
+			bash = l
+		} else if env == "" && strings.HasSuffix(l, "/env") {
+			env = l
+		}
+	}
+	if bash == "" || env == "" {
+		return nil, fmt.Errorf("could not find bash/env in nix-shell output:\n%s", stdout)
+	}
+
+	return &ResolvedEnv{BashPath: bash, EnvPath: env, PATH: strings.Join(nixParts, ":")}, nil
 }
 
 // parseNixError turns the raw nix error into something a human can act on
