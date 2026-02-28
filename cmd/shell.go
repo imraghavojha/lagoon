@@ -49,18 +49,23 @@ func runShell(cmd *cobra.Command, args []string) error {
 	cacheDir := projectCacheDir(absPath)
 	shellNixPath := filepath.Join(cacheDir, "shell.nix")
 
-	// write the shell.nix from the config
-	if err := nix.GenerateShellNix(cfg, shellNixPath); err != nil {
+	// write shell.nix (skips write if content unchanged)
+	sum, err := nix.GenerateShellNix(cfg, shellNixPath)
+	if err != nil {
 		return fmt.Errorf("generating shell.nix: %w", err)
 	}
 
-	fmt.Println("  building environment... (first run may take several minutes)")
-
-	// run nix-shell to get the resolved paths we need for bwrap
-	resolved, err := nix.Resolve(shellNixPath)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(1)
+	// warm start: skip nix-shell entirely if we have a matching cached env
+	resolved, hit := nix.LoadCache(cacheDir, sum)
+	if !hit {
+		fmt.Println("  building environment... (first run may take several minutes)")
+		resolved, err = nix.Resolve(shellNixPath)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			os.Exit(1)
+		}
+		// best-effort — if this fails the next run will just resolve again
+		_ = nix.SaveCache(cacheDir, resolved, sum)
 	}
 
 	// replace this process with bwrap — no cleanup needed on exit

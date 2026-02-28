@@ -19,13 +19,9 @@ type ResolvedEnv struct {
 	PATH     string
 }
 
-// GenerateShellNix writes the shell.nix to outPath, creating parent dirs if needed
-func GenerateShellNix(cfg *config.Config, outPath string) error {
-	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
-		return err
-	}
-
-	// indent each package name to match the nix template style
+// GenerateShellNix writes shell.nix to outPath if the content changed.
+// returns the sha256 sum of the generated content for cache lookups.
+func GenerateShellNix(cfg *config.Config, outPath string) (string, error) {
 	var lines []string
 	for _, p := range cfg.Packages {
 		lines = append(lines, "    "+p)
@@ -36,7 +32,17 @@ func GenerateShellNix(cfg *config.Config, outPath string) error {
 	content = strings.ReplaceAll(content, "{{SHA256}}", cfg.NixpkgsSHA256)
 	content = strings.ReplaceAll(content, "{{PACKAGES}}", strings.Join(lines, "\n"))
 
-	return os.WriteFile(outPath, []byte(content), 0644)
+	sum := contentSum([]byte(content))
+
+	// skip the write if the file already has this exact content
+	if existing, err := os.ReadFile(outPath); err == nil && contentSum(existing) == sum {
+		return sum, nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+		return "", err
+	}
+	return sum, os.WriteFile(outPath, []byte(content), 0644)
 }
 
 // missingAttrRe matches the nix error for unknown package names
