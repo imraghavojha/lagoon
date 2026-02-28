@@ -103,6 +103,10 @@ func Resolve(shellNixPath string) (*ResolvedEnv, error) {
 		}
 	}
 
+	if len(nixParts) == 0 {
+		return nil, fmt.Errorf("no nix store paths found in PATH — nix-shell may have failed silently")
+	}
+
 	return &ResolvedEnv{
 		BashPath: strings.TrimSpace(lines[0]),
 		EnvPath:  strings.TrimSpace(lines[1]),

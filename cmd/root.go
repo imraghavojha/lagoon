@@ -36,4 +36,6 @@ func init() {
 	rootCmd.AddCommand(shellCmd)
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(cleanCmd)
+	rootCmd.AddCommand(statusCmd)
+	rootCmd.AddCommand(versionCmd)
 }
