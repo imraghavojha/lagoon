@@ -20,7 +20,8 @@ type Config struct {
 	Packages      []string `toml:"packages"`
 	NixpkgsCommit string   `toml:"nixpkgs_commit"`
 	NixpkgsSHA256 string   `toml:"nixpkgs_sha256"`
-	Profile       string   `toml:"profile"` // "minimal" or "network"
+	Profile       string   `toml:"profile"`   // "minimal" or "network"
+	OnEnter       string   `toml:"on_enter,omitempty"` // command to run on sandbox entry
 }
 
 // Read parses lagoon.toml from the given path

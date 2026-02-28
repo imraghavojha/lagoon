@@ -38,6 +38,31 @@ func Enter(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd, memory st
 	return syscall.Exec(bwrap, append([]string{"bwrap"}, bwrapArgs...), nil)
 }
 
+// Start launches bwrap as a child process (for watch mode).
+// unlike Enter, the current process is not replaced — the caller manages the subprocess.
+func Start(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd, memory string, extraEnvs []string) (*exec.Cmd, error) {
+	bwrap, err := exec.LookPath("bwrap")
+	if err != nil {
+		return nil, fmt.Errorf("bwrap not found: %w", err)
+	}
+	bwrapArgs := buildArgs(cfg, env, projectPath, cmd, extraEnvs)
+
+	var c *exec.Cmd
+	if memory != "" {
+		sysRun, err := exec.LookPath("systemd-run")
+		if err != nil {
+			return nil, fmt.Errorf("--memory requires systemd-run: %w", err)
+		}
+		c = exec.Command(sysRun, append([]string{"--scope", "-p", "MemoryMax=" + strings.ToUpper(memory), "--", bwrap}, bwrapArgs...)...)
+	} else {
+		c = exec.Command(bwrap, bwrapArgs...)
+	}
+	c.Stdin = os.Stdin
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+	return c, c.Start()
+}
+
 // buildArgs constructs the full bwrap argument list.
 // order matters here — bwrap processes flags left to right.
 func buildArgs(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd string, extraEnvs []string) []string {
@@ -106,10 +131,18 @@ func buildArgs(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd string
 		}
 	}
 
-	// launch an interactive shell, or run the given command non-interactively
-	if cmd != "" {
+	// launch interactive shell or one-off command, injecting on_enter hook if set.
+	// for interactive: bash -c '<hook>; exec bash' — exec inherits the tty so
+	// the user gets a normal interactive shell after the hook runs.
+	// for one-off: bash -c '<hook> && <cmd>'
+	switch {
+	case cmd != "" && cfg.OnEnter != "":
+		args = append(args, "--", env.BashPath, "-c", cfg.OnEnter+" && "+cmd)
+	case cmd != "":
 		args = append(args, "--", env.BashPath, "-c", cmd)
-	} else {
+	case cfg.OnEnter != "":
+		args = append(args, "--", env.BashPath, "-c", cfg.OnEnter+"; exec "+env.BashPath)
+	default:
 		args = append(args, "--", env.BashPath)
 	}
 
