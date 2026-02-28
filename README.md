@@ -1,54 +1,60 @@
-# lagoon
+# Lagoon
 
-reproducible sandboxed shell environments. no docker. no root. no daemons.
+Reproducible sandboxed shell environments. No Docker. No root. No daemons.
 
-you describe the tools you need. anyone on any matching linux machine gets an identical shell with exactly those tools — same versions, guaranteed, every time.
+You describe the tools you need. Anyone on any matching Linux machine gets an identical shell with exactly those tools — same versions, guaranteed, every time.
 
 ```
-lagoon init     # pick your packages
+lagoon init     # search and pick packages
 lagoon shell    # enter the sandbox
 lagoon clean    # wipe the cache
+lagoon export > myenv.nar   # snapshot for offline use
+lagoon import myenv.nar     # restore on air-gapped machine
 ```
 
 ---
 
-## how it works
+## How it works
 
-lagoon writes a `lagoon.toml` with your packages and a pinned nixpkgs commit. you commit that file. anyone who runs `lagoon shell` gets the exact same environment — same binary, same version, same nix store path.
+Lagoon writes a `lagoon.toml` with your packages and a pinned nixpkgs commit. You commit that file. Anyone who runs `lagoon shell` gets the exact same environment — same binary, same version, same nix store path.
 
-bwrap creates the sandbox: your project directory is mounted at `/workspace`, the nix store is read-only, everything else is empty. network is off unless you asked for it. when you exit, nothing persists.
+bwrap creates the sandbox: your project directory is mounted at `/workspace`, the nix store is read-only, everything else is empty. Network is off unless you asked for it. When you exit, nothing persists.
 
 ---
 
-## install
+## Install
 
-**requirements:** linux (arm64 or amd64), bubblewrap, nix
+**Requirements:** Linux (arm64 or amd64), bubblewrap, nix
 
 ```bash
-# install bubblewrap and nix if you don't have them
+# Install bubblewrap and nix if you don't have them
 sudo apt install bubblewrap
 sh <(curl -L https://nixos.org/nix/install) --no-daemon && source ~/.nix-profile/etc/profile.d/nix.sh
 
-# install lagoon
+# Install lagoon
 curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh | bash
 ```
 
 ---
 
-## usage
+## Usage
 
 ```bash
-# in your project directory
-lagoon init        # interactive setup — pick packages, commit the result
+# In your project directory
+lagoon init        # interactive setup — search packages live, commit the result
 lagoon shell       # enter the sandbox (first run downloads packages)
-lagoon clean       # remove cached shell.nix for this project
+lagoon shell -m 512m   # limit memory to 512 MiB (uses systemd-run)
+lagoon clean       # remove cached environment for this project
+lagoon status      # show whether the environment is cached
+lagoon export > myenv.nar   # export full nix closure for offline transfer
+lagoon import myenv.nar     # import on an air-gapped machine
 ```
 
-inside the sandbox:
-- your project is at `/workspace` and you start there
+Inside the sandbox:
+- Your project is at `/workspace` and you start there
 - `HOME` is `/home` (ephemeral tmpfs — nothing persists between sessions)
-- only the packages you asked for are on `PATH`
-- network is off by default (set `profile = "network"` in lagoon.toml to enable)
+- Only the packages you asked for are on `PATH`
+- Network is off by default (set `profile = "network"` in lagoon.toml to enable)
 
 ---
 
@@ -61,20 +67,50 @@ nixpkgs_sha256 = "1knl8dcr5ip70a2vbky3q844212crwrvybyw2nhfmgm1mvqry963"
 profile = "minimal"   # or "network"
 ```
 
-`lagoon init` writes this for you. the nixpkgs pin is hardcoded in the binary — you never need to find or set it manually. search for package names at [search.nixos.org/packages](https://search.nixos.org/packages).
+`lagoon init` writes this for you. The nixpkgs pin is hardcoded in the binary — you never need to find or set it manually. `lagoon init` searches [search.nixos.org](https://search.nixos.org/packages) live as you type.
 
 ---
 
-## target platforms
+## Memory limits
 
-primary: arm64 linux (raspberry pi 4/5, ubuntu 22.04+)
-secondary: x86-64 linux
+On shared machines (e.g., a Raspberry Pi running multiple student environments), you can cap each sandbox's memory:
 
-first run on arm may take 10–60 minutes if packages aren't in the binary cache. this only happens once.
+```bash
+lagoon shell --memory 512m   # 512 MiB
+lagoon shell -m 2g            # 2 GiB
+lagoon run -m 256m python3 script.py
+```
+
+This wraps bwrap with `systemd-run --scope -p MemoryMax=...`. Requires systemd (standard on Ubuntu 22.04+).
 
 ---
 
-## build from source
+## Offline / air-gapped deployments
+
+Export an environment on a connected machine, then import on one with no internet:
+
+```bash
+# On a machine with internet:
+lagoon shell       # build and cache the environment first
+lagoon export > myenv.nar
+
+# Copy myenv.nar to the air-gapped machine, then:
+lagoon import myenv.nar
+lagoon shell       # works fully offline
+```
+
+---
+
+## Target platforms
+
+Primary: arm64 Linux (Raspberry Pi 4/5, Ubuntu 22.04+)
+Secondary: x86-64 Linux
+
+First run on ARM may take 10–60 minutes if packages aren't in the binary cache. This only happens once.
+
+---
+
+## Build from source
 
 ```bash
 git clone https://github.com/imraghavojha/lagoon
