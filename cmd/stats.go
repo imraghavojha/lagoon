@@ -102,7 +102,12 @@ func readProcessMem(pid int) string {
 	if err != nil {
 		return "?"
 	}
-	for _, line := range strings.Split(string(b), "\n") {
+	return parseVmRSS(string(b))
+}
+
+// parseVmRSS extracts VmRSS from the content of /proc/<pid>/status.
+func parseVmRSS(status string) string {
+	for _, line := range strings.Split(status, "\n") {
 		if strings.HasPrefix(line, "VmRSS:") {
 			f := strings.Fields(line)
 			if len(f) >= 2 {

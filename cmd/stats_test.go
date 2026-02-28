@@ -67,3 +67,27 @@ func TestReadProcessMemFakeProc(t *testing.T) {
 		t.Errorf("expected '?' for dead pid, got %q", result)
 	}
 }
+
+func TestParseVmRSSNormal(t *testing.T) {
+	status := "Name:\tbash\nVmRSS:\t  4096 kB\nVmSize:\t 12288 kB\n"
+	got := parseVmRSS(status)
+	if got != "4 MiB" {
+		t.Errorf("expected '4 MiB', got %q", got)
+	}
+}
+
+func TestParseVmRSSMissing(t *testing.T) {
+	status := "Name:\tbash\nVmSize:\t 12288 kB\n"
+	got := parseVmRSS(status)
+	if got != "?" {
+		t.Errorf("expected '?' when VmRSS absent, got %q", got)
+	}
+}
+
+func TestParseVmRSSZero(t *testing.T) {
+	status := "VmRSS:\t0 kB\n"
+	got := parseVmRSS(status)
+	if got != "0 MiB" {
+		t.Errorf("expected '0 MiB', got %q", got)
+	}
+}

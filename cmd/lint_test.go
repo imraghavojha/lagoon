@@ -3,7 +3,10 @@ package cmd
 import (
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
+
+	"github.com/imraghavojha/lagoon/internal/config"
 )
 
 // searchResponse returns a handler that returns the given packages as hits.
@@ -64,6 +67,56 @@ func TestLintPackageNotFound(t *testing.T) {
 	}
 	if found {
 		t.Error("python311 should not be found when server only returns python312")
+	}
+}
+
+func writeTempConfig(t *testing.T, cfg *config.Config) {
+	t.Helper()
+	dir := t.TempDir()
+	t.Chdir(dir)
+	if err := config.Write(filepath.Join(dir, config.Filename), cfg); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLintStructuralEmptyPackages(t *testing.T) {
+	writeTempConfig(t, &config.Config{
+		NixpkgsCommit: "abc",
+		NixpkgsSHA256: "sha",
+		Profile:       "minimal",
+	})
+	if err := runLint(nil, nil); err == nil {
+		t.Error("expected error for empty packages list")
+	}
+}
+
+func TestLintStructuralMissingCommit(t *testing.T) {
+	writeTempConfig(t, &config.Config{
+		Packages:      []string{"cowsay"},
+		NixpkgsSHA256: "sha",
+		Profile:       "minimal",
+	})
+	if err := runLint(nil, nil); err == nil {
+		t.Error("expected error for missing nixpkgs_commit")
+	}
+}
+
+func TestLintStructuralInvalidProfile(t *testing.T) {
+	writeTempConfig(t, &config.Config{
+		Packages:      []string{"cowsay"},
+		NixpkgsCommit: "abc",
+		NixpkgsSHA256: "sha",
+		Profile:       "badprofile",
+	})
+	if err := runLint(nil, nil); err == nil {
+		t.Error("expected error for invalid profile")
+	}
+}
+
+func TestLintNoConfig(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := runLint(nil, nil); err == nil {
+		t.Error("expected error when lagoon.toml is missing")
 	}
 }
 

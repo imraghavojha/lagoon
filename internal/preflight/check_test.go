@@ -1,6 +1,8 @@
 package preflight
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -35,5 +37,23 @@ func TestCheckUsernsMissingFile(t *testing.T) {
 		if !strings.Contains(err.Error(), "user namespaces are disabled") {
 			t.Errorf("unexpected error: %v", err)
 		}
+	}
+}
+
+func TestCheckBwrapFound(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "bwrap"), []byte("#!/bin/sh\n"), 0755)
+	t.Setenv("PATH", dir)
+	if err := checkBwrap(); err != nil {
+		t.Errorf("expected no error when bwrap found, got: %v", err)
+	}
+}
+
+func TestCheckNixFound(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "nix-shell"), []byte("#!/bin/sh\n"), 0755)
+	t.Setenv("PATH", dir)
+	if err := checkNix(); err != nil {
+		t.Errorf("expected no error when nix-shell found, got: %v", err)
 	}
 }
