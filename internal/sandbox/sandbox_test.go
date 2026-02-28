@@ -1,7 +1,10 @@
 package sandbox
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/imraghavojha/lagoon/internal/config"
@@ -121,5 +124,37 @@ func TestBuildArgsBadEnvSkipped(t *testing.T) {
 		if a == "--setenv" && i+1 < len(args) && args[i+1] == "NOEQUALSSIGN" {
 			t.Error("bad env entry must not produce a --setenv")
 		}
+	}
+}
+
+func TestEnterMemoryRequiresSystemdRun(t *testing.T) {
+	// create a fake bwrap so LookPath("bwrap") succeeds
+	dir := t.TempDir()
+	bwrapFake := filepath.Join(dir, "bwrap")
+	if err := os.WriteFile(bwrapFake, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	// PATH only contains the temp dir — no systemd-run there
+	t.Setenv("PATH", dir)
+
+	err := Enter(fakeCfg("minimal"), fakeEnv(), "/tmp", "", "512m", nil)
+	if err == nil {
+		t.Fatal("expected error when systemd-run is not found")
+	}
+	if !strings.Contains(err.Error(), "systemd-run") {
+		t.Errorf("error should mention systemd-run, got: %v", err)
+	}
+}
+
+func TestEnterNoBwrap(t *testing.T) {
+	// empty PATH — nothing is findable
+	t.Setenv("PATH", t.TempDir())
+
+	err := Enter(fakeCfg("minimal"), fakeEnv(), "/tmp", "", "", nil)
+	if err == nil {
+		t.Fatal("expected error when bwrap is not found")
+	}
+	if !strings.Contains(err.Error(), "bwrap") {
+		t.Errorf("error should mention bwrap, got: %v", err)
 	}
 }
