@@ -1,0 +1,4 @@
+packages = ["nodejs_20"]
+nixpkgs_commit = "26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915"
+nixpkgs_sha256 = "1knl8dcr5ip70a2vbky3q844212crwrvybyw2nhfmgm1mvqry963"
+profile = "minimal"
