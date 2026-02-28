@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/imraghavojha/lagoon/internal/config"
 	"github.com/imraghavojha/lagoon/internal/nix"
@@ -67,6 +68,15 @@ func runShell(cmd *cobra.Command, args []string) error {
 		// best-effort — if this fails the next run will just resolve again
 		_ = nix.SaveCache(cacheDir, resolved, sum)
 	}
+
+	// print banner so users know they're inside the sandbox
+	netStr := "off"
+	if cfg.Profile == "network" {
+		netStr = "on"
+	}
+	fmt.Printf("\n%s │ %s │ /workspace │ network: %s\n",
+		ok("lagoon"), strings.Join(cfg.Packages, "  "), netStr)
+	fmt.Println("  type 'exit' to return to host shell\n")
 
 	// replace this process with bwrap — no cleanup needed on exit
 	return sandbox.Enter(cfg, resolved, absPath)

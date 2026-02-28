@@ -85,6 +85,8 @@ func buildArgs(cfg *config.Config, env *nix.ResolvedEnv, projectPath string) []s
 		"--setenv", "TERM", os.Getenv("TERM"),
 		"--setenv", "USER", os.Getenv("USER"),
 		"--setenv", "LANG", "C.UTF-8",
+		// show [lagoon] prefix in prompt so users know they're in the sandbox
+		"--setenv", "PS1", "[lagoon] \\w $ ",
 
 		// start in the project directory
 		"--chdir", "/workspace",
