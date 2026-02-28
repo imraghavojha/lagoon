@@ -35,13 +35,6 @@ func runShell(cmd *cobra.Command, args []string) error {
 		os.Exit(1)
 	}
 
-	// warn early on arm — builds can take a very long time
-	if runtime.GOARCH == "arm64" {
-		fmt.Println(warn("!") + " arm detected: first run may take 10-60 minutes while packages compile.")
-		fmt.Println("  this only happens once. subsequent runs use the cache.")
-		fmt.Println("  do not interrupt this process.")
-	}
-
 	// figure out where to put the generated shell.nix
 	absPath, err := filepath.Abs(".")
 	if err != nil {
@@ -59,14 +52,20 @@ func runShell(cmd *cobra.Command, args []string) error {
 	// warm start: skip nix-shell entirely if we have a matching cached env
 	resolved, hit := nix.LoadCache(cacheDir, sum)
 	if !hit {
-		fmt.Println("  building environment... (first run may take several minutes)")
+		// arm warning only matters on cold starts — warm starts are instant
+		if runtime.GOARCH == "arm64" {
+			fmt.Println(warn("!") + " arm: first run may take 10-60 min to compile packages")
+			fmt.Println("  this only happens once. subsequent runs start in under a second.")
+		}
+		fmt.Println(warn("!") + " building environment...")
 		resolved, err = nix.Resolve(shellNixPath)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
-		// best-effort — if this fails the next run will just resolve again
 		_ = nix.SaveCache(cacheDir, resolved, sum)
+	} else {
+		fmt.Println(ok("✓") + " environment ready")
 	}
 
 	// print banner so users know they're inside the sandbox
