@@ -9,8 +9,7 @@ import (
 const (
 	Filename = "lagoon.toml"
 
-	// nixpkgs-unstable pin — fetched 2026-02-27, verified sha256 in vm
-	// to update: nix-prefetch-url --unpack https://github.com/NixOS/nixpkgs/archive/<new-commit>.tar.gz
+	// nixpkgs-unstable pin — to update: nix-prefetch-url --unpack https://github.com/NixOS/nixpkgs/archive/<new-commit>.tar.gz
 	DefaultCommit = "26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915"
 	DefaultSHA256 = "1knl8dcr5ip70a2vbky3q844212crwrvybyw2nhfmgm1mvqry963"
 )

@@ -54,8 +54,7 @@ var missingAttrRe = regexp.MustCompile(`attribute '([^']+)' missing`)
 var nixKeywords = []string{"fetching", "downloading", "building", "copying", "error", "warning"}
 
 // Resolve runs nix-shell and grabs the bash path, env path, and PATH value.
-// if progress is non-nil, matching stderr lines are sent to it; caller closes after use.
-// if progress is nil, lines are printed directly (legacy fallback).
+// matching stderr lines are sent to progress as they arrive; caller closes the channel after use.
 func Resolve(shellNixPath string, progress chan<- string) (*ResolvedEnv, error) {
 	var stderrBuf bytes.Buffer
 	pr, pw := io.Pipe()
@@ -72,13 +71,9 @@ func Resolve(shellNixPath string, progress chan<- string) (*ResolvedEnv, error) 
 			lower := strings.ToLower(line)
 			for _, kw := range nixKeywords {
 				if strings.Contains(lower, kw) {
-					if progress != nil {
-						select {
-						case progress <- line:
-						default:
-						}
-					} else {
-						fmt.Printf("\033[2m  nix │ %s\033[0m\n", line)
+					select {
+					case progress <- line:
+					default:
 					}
 					break
 				}
