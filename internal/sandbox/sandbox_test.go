@@ -162,3 +162,38 @@ func TestBuildArgsBadEnvSkipped(t *testing.T) {
 		}
 	}
 }
+
+// --- on_enter hook tests ---
+
+func TestBuildArgsOnEnterInteractive(t *testing.T) {
+	cfg := fakeCfg("minimal")
+	cfg.OnEnter = "echo hello"
+	env := fakeEnv()
+	args := buildArgs(cfg, env, "/proj", "", nil)
+	// hook runs then exec replaces with real interactive shell
+	if !hasSeq(args, "--", env.BashPath, "-c", "echo hello; exec "+env.BashPath) {
+		t.Errorf("on_enter interactive: got tail %v", args[len(args)-4:])
+	}
+}
+
+func TestBuildArgsOnEnterWithCommand(t *testing.T) {
+	cfg := fakeCfg("minimal")
+	cfg.OnEnter = "echo hello"
+	env := fakeEnv()
+	args := buildArgs(cfg, env, "/proj", "ls", nil)
+	// hook gates the command via &&
+	if !hasSeq(args, "--", env.BashPath, "-c", "echo hello && ls") {
+		t.Errorf("on_enter+cmd: got tail %v", args[len(args)-4:])
+	}
+}
+
+func TestBuildArgsNoHookNoChange(t *testing.T) {
+	cfg := fakeCfg("minimal")
+	env := fakeEnv()
+	args := buildArgs(cfg, env, "/proj", "", nil)
+	n := len(args)
+	// no hook, no cmd: plain interactive bash
+	if n < 2 || args[n-2] != "--" || args[n-1] != env.BashPath {
+		t.Errorf("no hook no cmd: expected [-- bash], got %v", args[n-2:])
+	}
+}

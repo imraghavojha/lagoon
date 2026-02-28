@@ -80,6 +80,14 @@ func runShell(cmd *cobra.Command, args []string) error {
 
 	// warm start: skip nix-shell entirely if we have a matching cached env
 	resolved, hit := nix.LoadCache(cacheDir, sum)
+
+	// nix-collect-garbage can wipe store paths even when the cache file is valid
+	if hit {
+		if _, err := os.Stat(resolved.BashPath); err != nil {
+			hit = false
+		}
+	}
+
 	if !hit {
 		// arm warning only matters on cold starts — warm starts are instant
 		if runtime.GOARCH == "arm64" {
@@ -101,7 +109,7 @@ func runShell(cmd *cobra.Command, args []string) error {
 				err error
 			}{env, err}
 		}()
-		tea.NewProgram(newBuildModel(progressCh)).Run()
+		tea.NewProgram(newBuildModel(progressCh), tea.WithAltScreen()).Run()
 		r := <-resultCh
 		if r.err != nil {
 			fmt.Fprintln(os.Stderr, r.err.Error())
@@ -109,10 +117,12 @@ func runShell(cmd *cobra.Command, args []string) error {
 		}
 		resolved = r.env
 		_ = nix.SaveCache(cacheDir, resolved, sum)
-		nix.CreateGCRoots(cacheDir, resolved)
 	} else {
 		fmt.Println(ok("✓") + " environment ready")
 	}
+
+	// always register gc roots so nix-collect-garbage won't wipe the env on next warm start
+	nix.CreateGCRoots(cacheDir, resolved)
 
 	// banner so users know they're inside the sandbox
 	netStr := "off"
@@ -125,7 +135,10 @@ func runShell(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Printf("\n%s │ %s │ /workspace │ network: %s%s\n",
 		ok("lagoon"), strings.Join(cfg.Packages, "  "), netStr, memStr)
-	fmt.Println("  type 'exit' to return to host shell")
+	// one-off commands don't have an interactive shell to exit from
+	if cmdFlag == "" {
+		fmt.Println("  type 'exit' to return to host shell")
+	}
 	fmt.Println()
 
 	// record pid so 'lagoon stats' can find this sandbox (same pid after syscall.Exec)
