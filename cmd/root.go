@@ -40,4 +40,8 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(exportCmd)
 	rootCmd.AddCommand(importCmd)
+	rootCmd.AddCommand(verifyCmd)
+	rootCmd.AddCommand(lintCmd)
+	rootCmd.AddCommand(statsCmd)
+	rootCmd.AddCommand(watchCmd)
 }
