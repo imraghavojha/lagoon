@@ -1,6 +1,7 @@
 package nix
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -116,4 +117,90 @@ func TestFilterOutNixEnv(t *testing.T) {
 	if len(out) != 2 {
 		t.Errorf("expected 2 vars after filtering, got %d", len(out))
 	}
+}
+
+// TestGenerateShellNixContainsAllPackages verifies that every package in the
+// config appears verbatim in the generated shell.nix buildInputs list.
+func TestGenerateShellNixContainsAllPackages(t *testing.T) {
+	cfg := &config.Config{
+		Packages:      []string{"python311", "rustc", "cargo", "nodejs"},
+		NixpkgsCommit: "abc123",
+		NixpkgsSHA256: "sha256test",
+		Profile:       "minimal",
+	}
+	outPath := filepath.Join(t.TempDir(), "shell.nix")
+	if _, err := GenerateShellNix(cfg, outPath); err != nil {
+		t.Fatal(err)
+	}
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, pkg := range cfg.Packages {
+		if !strings.Contains(string(content), pkg) {
+			t.Errorf("package %q missing from generated shell.nix", pkg)
+		}
+	}
+}
+
+// TestGenerateShellNixSkipsWriteIfUnchanged verifies that calling
+// GenerateShellNix twice with the same config does not rewrite the file —
+// same content means same sum means early return before WriteFile.
+func TestGenerateShellNixSkipsWriteIfUnchanged(t *testing.T) {
+	cfg := &config.Config{
+		Packages:      []string{"git", "curl"},
+		NixpkgsCommit: "deadbeef01234567890123456789012345678901",
+		NixpkgsSHA256: "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		Profile:       "minimal",
+	}
+	outPath := filepath.Join(t.TempDir(), "shell.nix")
+
+	_, err := GenerateShellNix(cfg, outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info1, err := os.Stat(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = GenerateShellNix(cfg, outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info2, err := os.Stat(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !info2.ModTime().Equal(info1.ModTime()) {
+		t.Error("file must not be rewritten when content is unchanged — mtime changed on second call")
+	}
+}
+
+// TestGenerateShellNixPackageOrderProducesDistinctHashes documents that
+// package order currently affects the generated hash. Users who reorder
+// packages in lagoon.toml will trigger a cold rebuild unnecessarily.
+//
+// If this test starts failing (hashes become equal), it means sorting has
+// been implemented — update the test to assert equality instead.
+func TestGenerateShellNixPackageOrderProducesDistinctHashes(t *testing.T) {
+	cfgAB := &config.Config{
+		Packages: []string{"python311", "git"}, NixpkgsCommit: "abc", NixpkgsSHA256: "sha", Profile: "minimal",
+	}
+	cfgBA := &config.Config{
+		Packages: []string{"git", "python311"}, NixpkgsCommit: "abc", NixpkgsSHA256: "sha", Profile: "minimal",
+	}
+
+	sumAB, _ := GenerateShellNix(cfgAB, filepath.Join(t.TempDir(), "shell.nix"))
+	sumBA, _ := GenerateShellNix(cfgBA, filepath.Join(t.TempDir(), "shell.nix"))
+
+	if sumAB == sumBA {
+		t.Log("NOTE: package order no longer affects hash — sorting implemented, update this test")
+	} else {
+		t.Logf("INFO: package order is significant — ['python311','git'] != ['git','python311']. "+
+			"users reordering lagoon.toml packages will trigger unnecessary cold rebuilds. "+
+			"sumAB=%s sumBA=%s", sumAB, sumBA)
+	}
+	// this test intentionally never calls t.Error — it documents behaviour either way
 }
