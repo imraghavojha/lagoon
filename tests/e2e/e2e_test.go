@@ -107,7 +107,7 @@ func TestE2ELintValidConfig(t *testing.T) {
 	dir := t.TempDir()
 	writeCfg(t, dir, []string{"python3"}, "minimal")
 
-	out, err := run(t, dir, 30*time.Second, "lint")
+	out, err := run(t, dir, 30*time.Second, "check")
 	// lint may fail due to network issues but must not panic
 	if err != nil {
 		assert.NotContains(t, out, "panic:", "lint must never panic")
@@ -124,7 +124,7 @@ func TestE2ELintEmptyPackages(t *testing.T) {
 	dir := t.TempDir()
 	writeCfg(t, dir, []string{}, "minimal")
 
-	out, err := run(t, dir, 15*time.Second, "lint")
+	out, err := run(t, dir, 15*time.Second, "check")
 	assert.Error(t, err, "lint must exit non-zero for empty packages")
 	assert.Contains(t, out, "packages list is empty")
 }
@@ -134,7 +134,7 @@ func TestE2ELintDuplicatePackages(t *testing.T) {
 	dir := t.TempDir()
 	writeCfg(t, dir, []string{"python3", "git", "python3"}, "minimal")
 
-	out, err := run(t, dir, 15*time.Second, "lint")
+	out, err := run(t, dir, 15*time.Second, "check")
 	assert.Error(t, err, "lint must exit non-zero for duplicate packages")
 	assert.Contains(t, out, "duplicate package")
 }
@@ -143,7 +143,7 @@ func TestE2ELintDuplicatePackages(t *testing.T) {
 func TestE2ELintNoConfig(t *testing.T) {
 	dir := t.TempDir() // no lagoon.toml written
 
-	_, err := run(t, dir, 10*time.Second, "lint")
+	_, err := run(t, dir, 10*time.Second, "check")
 	assert.Error(t, err, "lint must exit non-zero when lagoon.toml is missing")
 }
 
@@ -152,7 +152,7 @@ func TestE2ELintNoConfig(t *testing.T) {
 func TestE2EStatusNoConfig(t *testing.T) {
 	dir := t.TempDir()
 
-	out, err := run(t, dir, 10*time.Second, "status")
+	out, err := run(t, dir, 10*time.Second, "ps")
 	assert.NoError(t, err, "status must exit 0 even without lagoon.toml")
 	assert.Contains(t, out, "lagoon init", "status must suggest running lagoon init")
 }
@@ -162,7 +162,7 @@ func TestE2EStatusNotCached(t *testing.T) {
 	dir := t.TempDir()
 	writeCfg(t, dir, []string{"python3"}, "minimal")
 
-	out, err := run(t, dir, 10*time.Second, "status")
+	out, err := run(t, dir, 10*time.Second, "ps")
 	assert.NoError(t, err, "status must exit 0 on cache miss")
 	assert.Contains(t, out, "not cached", "status must report not cached")
 }
@@ -172,7 +172,7 @@ func TestE2ECleanNoCache(t *testing.T) {
 	dir := t.TempDir()
 	writeCfg(t, dir, []string{"python3"}, "minimal")
 
-	out, err := run(t, dir, 10*time.Second, "clean")
+	out, err := run(t, dir, 10*time.Second, "rm")
 	assert.NoError(t, err, "clean must exit 0 when no cache exists")
 	_ = out // message about no cache is fine
 }
@@ -219,7 +219,7 @@ func TestE2EShellWithRealNix(t *testing.T) {
 	t.Logf("warm start: %v", warmDur)
 
 	// status should now show cached
-	out, err = run(t, dir, 10*time.Second, "status")
+	out, err = run(t, dir, 10*time.Second, "ps")
 	require.NoError(t, err)
 	assert.Contains(t, out, "cached", "status must show cached after successful shell")
 
@@ -229,9 +229,9 @@ func TestE2EShellWithRealNix(t *testing.T) {
 	assert.Contains(t, out, "hello_lagoon", "-e flag must inject env var into sandbox")
 
 	// clean removes cache
-	_, err = run(t, dir, 10*time.Second, "clean")
+	_, err = run(t, dir, 10*time.Second, "rm")
 	require.NoError(t, err)
-	out, _ = run(t, dir, 10*time.Second, "status")
+	out, _ = run(t, dir, 10*time.Second, "ps")
 	assert.Contains(t, out, "not cached", "status must show not cached after clean")
 }
 
@@ -249,4 +249,22 @@ func TestE2EEnvVarPassthrough(t *testing.T) {
 	out, err := run(t, dir, 30*time.Second, "shell", "-e", "LAGOON_TEST_VAR=it_works", "--cmd", "echo $LAGOON_TEST_VAR")
 	require.NoError(t, err)
 	assert.Contains(t, out, "it_works", "-e flag must make env var visible inside sandbox")
+}
+
+// TestE2EUpNoConfig verifies that lagoon up fails when lagoon.toml is absent.
+func TestE2EUpNoConfig(t *testing.T) {
+	dir := t.TempDir()
+
+	_, err := run(t, dir, 10*time.Second, "up")
+	assert.Error(t, err, "up must exit non-zero when lagoon.toml is missing")
+}
+
+// TestE2EUpNoServices verifies that lagoon up fails when [up] section is absent.
+func TestE2EUpNoServices(t *testing.T) {
+	dir := t.TempDir()
+	writeCfg(t, dir, []string{"python3"}, "minimal")
+	// writeCfg does not write an [up] section
+
+	_, err := run(t, dir, 10*time.Second, "up")
+	assert.Error(t, err, "up must exit non-zero when no services are defined")
 }

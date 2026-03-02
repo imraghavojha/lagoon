@@ -52,9 +52,9 @@ func Enter(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd, memory st
 	return syscall.Exec(bwrap, append([]string{"bwrap"}, bwrapArgs...), nil)
 }
 
-// Start launches bwrap as a child process (for watch mode).
-// unlike Enter, the current process is not replaced — the caller manages the subprocess.
-func Start(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd, memory string, extraEnvs []string) (*exec.Cmd, error) {
+// Build returns a configured-but-unstarted bwrap command.
+// the caller must set Stdout/Stderr then call cmd.Start().
+func Build(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd, memory string, extraEnvs []string) (*exec.Cmd, error) {
 	if err := validateEnvs(extraEnvs); err != nil {
 		return nil, err
 	}
@@ -63,18 +63,23 @@ func Start(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd, memory st
 		return nil, fmt.Errorf("bwrap not found: %w", err)
 	}
 	bwrapArgs := buildArgs(cfg, env, projectPath, cmd, extraEnvs)
-
-	var c *exec.Cmd
 	if memory != "" {
 		sysRun, err := exec.LookPath("systemd-run")
 		if err != nil {
 			return nil, fmt.Errorf("--memory requires systemd-run: %w", err)
 		}
-		c = exec.Command(sysRun, append([]string{"--scope", "-p", "MemoryMax=" + strings.ToUpper(memory), "--", bwrap}, bwrapArgs...)...)
-	} else {
-		c = exec.Command(bwrap, bwrapArgs...)
+		return exec.Command(sysRun, append([]string{"--scope", "-p", "MemoryMax=" + strings.ToUpper(memory), "--", bwrap}, bwrapArgs...)...), nil
 	}
-	// watch mode runs non-interactive commands — no stdin so the parent keeps the terminal
+	return exec.Command(bwrap, bwrapArgs...), nil
+}
+
+// Start launches bwrap as a child process (for watch mode).
+// unlike Enter, the current process is not replaced — the caller manages the subprocess.
+func Start(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd, memory string, extraEnvs []string) (*exec.Cmd, error) {
+	c, err := Build(cfg, env, projectPath, cmd, memory, extraEnvs)
+	if err != nil {
+		return nil, err
+	}
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	return c, c.Start()
