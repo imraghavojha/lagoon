@@ -8,13 +8,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var cleanCmd = &cobra.Command{
-	Use:   "clean",
-	Short: "remove the cached shell.nix for the current project",
-	RunE:  runClean,
+var rmCmd = &cobra.Command{
+	Use:   "rm",
+	Short: "remove the cached environment for this project",
+	RunE:  runRm,
 }
 
-func runClean(cmd *cobra.Command, args []string) error {
+func runRm(cmd *cobra.Command, args []string) error {
 	absPath, err := filepath.Abs(".")
 	if err != nil {
 		return fmt.Errorf("getting working directory: %w", err)

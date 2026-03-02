@@ -374,3 +374,29 @@ func BenchmarkLintOnePkg(b *testing.B) {
 		resp.Body.Close()
 	}
 }
+
+// TestUpConfigLoadsServices verifies that the [up] table in lagoon.toml is
+// parsed correctly into cfg.Up — no nix or bwrap required.
+func TestUpConfigLoadsServices(t *testing.T) {
+	dir := t.TempDir()
+
+	cfg := &config.Config{
+		Packages:      []string{"python3", "nodejs"},
+		NixpkgsCommit: config.DefaultCommit,
+		NixpkgsSHA256: config.DefaultSHA256,
+		Profile:       "network",
+		Up: map[string]string{
+			"web": "node server.js",
+			"api": "python3 -m flask run --port 8080",
+		},
+	}
+	cfgPath := filepath.Join(dir, config.Filename)
+	require.NoError(t, config.Write(cfgPath, cfg))
+
+	loaded, err := config.Read(cfgPath)
+	require.NoError(t, err)
+
+	assert.Equal(t, cfg.Up, loaded.Up, "up services must survive a write/read roundtrip")
+	assert.Equal(t, "node server.js", loaded.Up["web"])
+	assert.Equal(t, "python3 -m flask run --port 8080", loaded.Up["api"])
+}

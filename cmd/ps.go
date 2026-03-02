@@ -11,14 +11,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/imraghavojha/lagoon/internal/config"
+	"github.com/imraghavojha/lagoon/internal/nix"
 	"github.com/spf13/cobra"
 )
-
-var statsCmd = &cobra.Command{
-	Use:   "stats",
-	Short: "show memory usage of running sandbox processes",
-	RunE:  runStats,
-}
 
 // sandboxPID is written to cacheDir/pid.json just before entering the sandbox.
 type sandboxPID struct {
@@ -40,9 +36,40 @@ func writePIDFile(cacheDir, project string, packages []string) {
 	_ = os.WriteFile(filepath.Join(cacheDir, "pid.json"), b, 0644)
 }
 
-func runStats(cmd *cobra.Command, args []string) error {
+var psCmd = &cobra.Command{
+	Use:   "ps",
+	Short: "show status and resource usage of sandboxes",
+	RunE:  runPs,
+}
+
+func runPs(cmd *cobra.Command, args []string) error {
+	// current project status (was status)
+	cfg, err := config.Read(config.Filename)
+	if err != nil {
+		fmt.Println(warn("!") + " no lagoon.toml found — run 'lagoon init' first")
+	} else {
+		absPath, err := filepath.Abs(".")
+		if err != nil {
+			return err
+		}
+		cacheDir := projectCacheDir(absPath)
+		shellNixPath := filepath.Join(cacheDir, "shell.nix")
+
+		fmt.Println("  packages: " + strings.Join(cfg.Packages, " "))
+		fmt.Println("  profile:  " + cfg.Profile)
+
+		sum, _ := nix.GenerateShellNix(cfg, shellNixPath)
+		if _, hit := nix.LoadCache(cacheDir, sum); hit {
+			fmt.Println(ok("✓") + " cached — next 'lagoon shell' starts instantly")
+		} else {
+			fmt.Println(warn("!") + " not cached — run 'lagoon shell' to build")
+		}
+		fmt.Println()
+	}
+
+	// running sandbox processes (was stats — linux only)
 	if runtime.GOOS != "linux" {
-		fmt.Println(warn("!") + " lagoon stats is only available on Linux (/proc required)")
+		fmt.Println(warn("!") + " sandbox process info is only available on Linux (/proc required)")
 		return nil
 	}
 
@@ -55,7 +82,7 @@ func runStats(cmd *cobra.Command, args []string) error {
 
 	entries, err := filepath.Glob(filepath.Join(lagoonCache, "*/pid.json"))
 	if err != nil || len(entries) == 0 {
-		fmt.Println("  no sandboxes found")
+		fmt.Println("  no sandboxes running")
 		return nil
 	}
 
@@ -69,16 +96,12 @@ func runStats(cmd *cobra.Command, args []string) error {
 		if err := json.Unmarshal(b, &info); err != nil {
 			continue
 		}
-
-		alive := isProcessAlive(info.PID)
-		if !alive {
+		if !isProcessAlive(info.PID) {
 			continue
 		}
-
 		mem := readProcessMem(info.PID)
 		pkgs := strings.Join(info.Packages, " ")
-		fmt.Printf("  %s  pid %-6d  %-8s  %s\n",
-			ok("●"), info.PID, mem, pkgs)
+		fmt.Printf("  %s  pid %-6d  %-8s  %s\n", ok("●"), info.PID, mem, pkgs)
 		fmt.Printf("     %s\n", info.Project)
 		running++
 	}

@@ -115,7 +115,7 @@ EOF
   # lint may fail because DefaultCommit is a placeholder on dev machines
   # but structural validation (non-empty, profile valid) should always pass
   local output
-  output=$(lagoon lint 2>&1) || true
+  output=$(lagoon check 2>&1) || true
 
   if echo "$output" | grep -q "packages list is empty\|profile must be"; then
     fail "test_lint_passes_on_valid_config" "structural lint failed: $output"
@@ -138,7 +138,7 @@ profile = "minimal"
 EOF
 
   local output
-  output=$(lagoon lint 2>&1) || true
+  output=$(lagoon check 2>&1) || true
 
   if echo "$output" | grep -q "packages list is empty"; then
     pass "test_lint_detects_empty_packages"
@@ -161,7 +161,7 @@ profile = "minimal"
 EOF
 
   local output
-  output=$(lagoon lint 2>&1) || true
+  output=$(lagoon check 2>&1) || true
 
   if echo "$output" | grep -q "duplicate package"; then
     pass "test_lint_detects_duplicate_packages"
@@ -184,7 +184,7 @@ profile = "badprofile"
 EOF
 
   local output
-  output=$(lagoon lint 2>&1) || true
+  output=$(lagoon check 2>&1) || true
 
   if echo "$output" | grep -q "profile must be"; then
     pass "test_lint_detects_bad_profile"
@@ -233,7 +233,7 @@ profile = "minimal"
 EOF
 
   local output
-  output=$(lagoon status 2>&1)
+  output=$(lagoon ps 2>&1)
 
   if echo "$output" | grep -q "not cached\|lagoon shell"; then
     pass "test_status_shows_not_cached"
@@ -256,13 +256,13 @@ profile = "minimal"
 EOF
 
   local output
-  output=$(lagoon clean 2>&1)
+  output=$(lagoon rm 2>&1)
   local exit_code=$?
 
   if [ $exit_code -eq 0 ]; then
     pass "test_clean_is_noop_without_cache"
   else
-    fail "test_clean_is_noop_without_cache" "lagoon clean should not error with no cache, got: $output"
+    fail "test_clean_is_noop_without_cache" "lagoon rm should not error with no cache, got: $output"
   fi
   cd "$TMPROOT"
 }
@@ -374,7 +374,7 @@ test_status_warm_after_shell() {
 
   cd "$dir"
   local output
-  output=$(lagoon status 2>&1)
+  output=$(lagoon ps 2>&1)
   if echo "$output" | grep -q "cached\|✓"; then
     pass "test_status_warm_after_shell"
   else
@@ -393,9 +393,9 @@ test_clean_removes_cache() {
   [ -f "$dir/lagoon.toml" ] || { skip "test_clean_removes_cache" "no e2e project"; return; }
 
   cd "$dir"
-  lagoon clean 2>&1 || true
+  lagoon rm 2>&1 || true
   local output
-  output=$(lagoon status 2>&1)
+  output=$(lagoon ps 2>&1)
   if echo "$output" | grep -q "not cached\|lagoon shell"; then
     pass "test_clean_removes_cache"
   else
@@ -484,10 +484,10 @@ profile = "minimal"
 
   cd "$dir1"
   local out1
-  out1=$(lagoon status 2>&1)
+  out1=$(lagoon ps 2>&1)
   cd "$dir2"
   local out2
-  out2=$(lagoon status 2>&1)
+  out2=$(lagoon ps 2>&1)
 
   # both should produce identical status (not-cached, same config)
   # the actual test is that GenerateShellNix produces the same hash
@@ -562,6 +562,88 @@ bench_warm_start_time() {
 }
 
 # --------------------------------------------------------------------------
+# lagoon up: port accessibility from host
+# --------------------------------------------------------------------------
+
+test_up_port_accessible() {
+  if [ "${LAGOON_E2E:-0}" != "1" ]; then
+    skip "test_up_port_accessible" "set LAGOON_E2E=1"
+    return
+  fi
+
+  local dir="$TMPROOT/up_test"
+  mkdir -p "$dir"
+  cd "$dir"
+
+  # write lagoon.toml with python3 and an [up] section
+  cat > lagoon.toml <<'EOF'
+packages = ["python3"]
+nixpkgs_commit = "PLACEHOLDER_COMMIT"
+nixpkgs_sha256 = "PLACEHOLDER_SHA256"
+profile = "network"
+
+[up]
+server = "python3 -m http.server 8787"
+EOF
+
+  # substitute real values from the environment or defaults
+  if [ -n "${LAGOON_NIXPKGS_COMMIT:-}" ]; then
+    sed -i "s/PLACEHOLDER_COMMIT/$LAGOON_NIXPKGS_COMMIT/" lagoon.toml
+    sed -i "s/PLACEHOLDER_SHA256/$LAGOON_NIXPKGS_SHA256/" lagoon.toml
+  else
+    # use the values from lagoon version output
+    commit=$(lagoon version 2>&1 | grep -oE '[a-f0-9]{40}' | head -1)
+    sha256=$(lagoon version 2>&1 | grep -oE '1[a-z0-9]{51}' | head -1)
+    if [ -n "$commit" ] && [ -n "$sha256" ]; then
+      sed -i "s/PLACEHOLDER_COMMIT/$commit/" lagoon.toml
+      sed -i "s/PLACEHOLDER_SHA256/$sha256/" lagoon.toml
+    fi
+  fi
+
+  # build the environment first (warm start for lagoon up)
+  lagoon shell --cmd "echo env ready" &>/dev/null || {
+    fail "test_up_port_accessible" "could not build environment"
+    cd "$TMPROOT"
+    return
+  }
+
+  # start services in background
+  lagoon up &>/tmp/lagoon_up.log &
+  local up_pid=$!
+
+  # retry curl up to 15 times (1s apart) — services need a moment to start
+  local ok=0
+  for i in $(seq 1 15); do
+    if curl -sf http://localhost:8787 >/dev/null 2>&1; then
+      ok=1
+      break
+    fi
+    sleep 1
+  done
+
+  # stop lagoon up
+  kill "$up_pid" 2>/dev/null || true
+  wait "$up_pid" 2>/dev/null || true
+
+  if [ "$ok" = "1" ]; then
+    pass "test_up_port_accessible"
+  else
+    fail "test_up_port_accessible" "port 8787 was not reachable from host after 15s"
+    cat /tmp/lagoon_up.log || true
+  fi
+
+  # verify port is closed after lagoon up exits
+  sleep 1
+  if curl -sf http://localhost:8787 >/dev/null 2>&1; then
+    fail "test_up_port_accessible_cleanup" "port 8787 still open after lagoon up stopped"
+  else
+    pass "test_up_port_accessible_cleanup"
+  fi
+
+  cd "$TMPROOT"
+}
+
+# --------------------------------------------------------------------------
 # run all tests
 # --------------------------------------------------------------------------
 
@@ -590,6 +672,7 @@ test_status_warm_after_shell
 test_clean_removes_cache
 test_network_off_in_minimal_profile
 test_network_on_in_network_profile
+test_up_port_accessible
 
 # benchmarks
 bench_cold_start_time

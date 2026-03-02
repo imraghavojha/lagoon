@@ -23,22 +23,18 @@ func writeTestConfig(t *testing.T, dir string, packages []string, profile string
 	require.NoError(t, config.Write(filepath.Join(dir, config.Filename), cfg))
 }
 
-// TestRunStatusNoConfig verifies that runStatus does not error when lagoon.toml
-// is absent — it prints a warning and exits cleanly.
-func TestRunStatusNoConfig(t *testing.T) {
+func TestRunPsNoConfig(t *testing.T) {
 	cacheHome := t.TempDir()
 	projectDir := t.TempDir()
 	t.Setenv("XDG_CACHE_HOME", cacheHome)
 
-	chdirTemp(t, projectDir) // no lagoon.toml written
+	chdirTemp(t, projectDir) // no lagoon.toml
 
-	err := runStatus(nil, nil)
-	assert.NoError(t, err, "runStatus must return nil when lagoon.toml is missing")
+	err := runPs(nil, nil)
+	assert.NoError(t, err, "ps must not error when lagoon.toml is missing")
 }
 
-// TestRunStatusCacheMiss verifies that runStatus returns nil when config exists
-// but no cache has been built yet.
-func TestRunStatusCacheMiss(t *testing.T) {
+func TestRunPsCacheMiss(t *testing.T) {
 	cacheHome := t.TempDir()
 	projectDir := t.TempDir()
 	t.Setenv("XDG_CACHE_HOME", cacheHome)
@@ -46,13 +42,11 @@ func TestRunStatusCacheMiss(t *testing.T) {
 	writeTestConfig(t, projectDir, []string{"python3"}, "minimal")
 	chdirTemp(t, projectDir)
 
-	err := runStatus(nil, nil)
-	assert.NoError(t, err, "runStatus must return nil on a cache miss")
+	err := runPs(nil, nil)
+	assert.NoError(t, err, "ps must not error on a cache miss")
 }
 
-// TestRunStatusCacheHit verifies that runStatus returns nil when a valid cache
-// exists for the current project config.
-func TestRunStatusCacheHit(t *testing.T) {
+func TestRunPsCacheHit(t *testing.T) {
 	cacheHome := t.TempDir()
 	projectDir := t.TempDir()
 	t.Setenv("XDG_CACHE_HOME", cacheHome)
@@ -65,7 +59,6 @@ func TestRunStatusCacheHit(t *testing.T) {
 	}
 	require.NoError(t, config.Write(filepath.Join(projectDir, config.Filename), cfg))
 
-	// resolve canonical path then build cache using that path
 	resolved := chdirTemp(t, projectDir)
 	cacheDir := projectCacheDir(resolved)
 	shellNixPath := filepath.Join(cacheDir, "shell.nix")
@@ -80,13 +73,11 @@ func TestRunStatusCacheHit(t *testing.T) {
 	}
 	require.NoError(t, nix.SaveCache(cacheDir, fakeEnv, sum))
 
-	err = runStatus(nil, nil)
-	assert.NoError(t, err, "runStatus must return nil when cache is present and sum matches")
+	err = runPs(nil, nil)
+	assert.NoError(t, err)
 }
 
-// TestRunStatusSumMismatch verifies that runStatus returns nil even when the
-// cached sum doesn't match — it's a display command, not a gating check.
-func TestRunStatusSumMismatch(t *testing.T) {
+func TestRunPsSumMismatch(t *testing.T) {
 	cacheHome := t.TempDir()
 	projectDir := t.TempDir()
 	t.Setenv("XDG_CACHE_HOME", cacheHome)
@@ -110,6 +101,6 @@ func TestRunStatusSumMismatch(t *testing.T) {
 	}
 	require.NoError(t, nix.SaveCache(cacheDir, fakeEnv, "wrongsum"))
 
-	err := runStatus(nil, nil)
-	assert.NoError(t, err, "runStatus must return nil even on sum mismatch")
+	err := runPs(nil, nil)
+	assert.NoError(t, err, "ps must return nil even on sum mismatch — it is display-only")
 }
