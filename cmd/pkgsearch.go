@@ -99,7 +99,7 @@ func fetchPkgsCmd(q string) tea.Cmd {
 
 func queryNixpkgs(q string) ([]nixPkg, error) {
 	body := fmt.Sprintf(`{"query":{"multi_match":{"query":%q,"fields":["package_attr_name^9","package_pname^6","package_description^1"]}},"size":8}`, q)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, "POST", nixSearchURL, strings.NewReader(body))
 	if err != nil {

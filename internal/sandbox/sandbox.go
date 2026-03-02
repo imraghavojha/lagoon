@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -66,6 +67,12 @@ func Start(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd, memory st
 // buildArgs constructs the full bwrap argument list.
 // order matters here — bwrap processes flags left to right.
 func buildArgs(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd string, extraEnvs []string) []string {
+	// match /etc/passwd — tools like git resolve ~ using the passwd entry, not bare $HOME
+	sandboxHome := "/home"
+	if realHome, err := os.UserHomeDir(); err == nil {
+		sandboxHome = "/home/" + filepath.Base(realHome)
+	}
+
 	args := []string{
 		// nix store is read-only — packages live here
 		"--ro-bind", "/nix/store", "/nix/store",
@@ -76,6 +83,8 @@ func buildArgs(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd string
 		// writable temp and home — ephemeral, gone when shell exits
 		"--tmpfs", "/tmp",
 		"--tmpfs", "/home",
+		// create the home subdir inside the tmpfs so tools that stat it don't fail
+		"--dir", sandboxHome,
 
 		// create /etc so we can mount individual files into it
 		"--dir", "/etc",
@@ -106,7 +115,7 @@ func buildArgs(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd string
 
 		// wipe inherited env — we'll set exactly what we need via --setenv
 		"--clearenv",
-		"--setenv", "HOME", "/home",
+		"--setenv", "HOME", sandboxHome,
 		"--setenv", "PATH", env.PATH,
 		"--setenv", "TERM", os.Getenv("TERM"),
 		"--setenv", "USER", os.Getenv("USER"),

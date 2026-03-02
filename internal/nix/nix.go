@@ -3,6 +3,7 @@ package nix
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/imraghavojha/lagoon/internal/config"
 )
@@ -55,10 +57,13 @@ var nixKeywords = []string{"fetching", "downloading", "building", "copying", "er
 
 // Resolve runs nix-shell and grabs the bash path, env path, and PATH value.
 // matching stderr lines are sent to progress as they arrive; caller closes the channel after use.
+// 30 min timeout covers cold builds; warm cache hits finish in seconds.
 func Resolve(shellNixPath string, progress chan<- string) (*ResolvedEnv, error) {
 	var stderrBuf bytes.Buffer
 	pr, pw := io.Pipe()
-	cmd := exec.Command("nix-shell", shellNixPath, "--run",
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "nix-shell", shellNixPath, "--run",
 		"which bash && which env && echo $PATH")
 	cmd.Stderr = io.MultiWriter(&stderrBuf, pw)
 
