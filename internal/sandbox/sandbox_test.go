@@ -109,6 +109,23 @@ func TestBuildArgsSymlinks(t *testing.T) {
 	}
 }
 
+func TestBuildArgsSandboxHomeHasDir(t *testing.T) {
+	args := buildArgs(fakeCfg("minimal"), fakeEnv(), "/proj", "", nil)
+	var home string
+	for i, a := range args {
+		if a == "--setenv" && i+2 < len(args) && args[i+1] == "HOME" {
+			home = args[i+2]
+		}
+	}
+	if home == "" {
+		t.Fatal("--setenv HOME not found in bwrap args")
+	}
+	// the home subdir must be created inside the tmpfs so tools don't fail when they stat it
+	if !hasSeq(args, "--dir", home) {
+		t.Errorf("--dir %s not found — HOME dir must be created inside /home tmpfs", home)
+	}
+}
+
 // --- network profile tests ---
 
 func TestBuildArgsNetworkOff(t *testing.T) {
