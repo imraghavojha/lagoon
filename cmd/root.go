@@ -22,7 +22,8 @@ var rootCmd = &cobra.Command{
 no docker. no root. no daemons. one config file, one command.
 
 run 'lagoon init' to set up a new environment.
-run 'lagoon shell' to enter it.`,
+run 'lagoon shell' to enter it.
+run 'lagoon up' to start services accessible at localhost.`,
 }
 
 func Execute() {
@@ -35,13 +36,12 @@ func init() {
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(shellCmd)
 	rootCmd.AddCommand(runCmd)
-	rootCmd.AddCommand(cleanCmd)
-	rootCmd.AddCommand(statusCmd)
-	rootCmd.AddCommand(versionCmd)
-	rootCmd.AddCommand(exportCmd)
-	rootCmd.AddCommand(importCmd)
-	rootCmd.AddCommand(verifyCmd)
-	rootCmd.AddCommand(lintCmd)
-	rootCmd.AddCommand(statsCmd)
+	rootCmd.AddCommand(upCmd)
+	rootCmd.AddCommand(psCmd)
+	rootCmd.AddCommand(rmCmd)
+	rootCmd.AddCommand(checkCmd)
+	rootCmd.AddCommand(saveCmd)
+	rootCmd.AddCommand(loadCmd)
 	rootCmd.AddCommand(watchCmd)
+	rootCmd.AddCommand(versionCmd)
 }

@@ -8,14 +8,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var importCmd = &cobra.Command{
-	Use:   "import <file>",
-	Short: "load a nix closure snapshot exported with 'lagoon export'",
+var loadCmd = &cobra.Command{
+	Use:   "load <file>",
+	Short: "import an environment from a .nar file",
 	Args:  cobra.ExactArgs(1),
-	RunE:  runImport,
+	RunE:  runLoad,
 }
 
-func runImport(cmd *cobra.Command, args []string) error {
+func runLoad(cmd *cobra.Command, args []string) error {
 	f, err := os.Open(args[0])
 	if err != nil {
 		return err

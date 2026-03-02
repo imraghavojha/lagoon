@@ -17,11 +17,12 @@ const (
 
 // Config holds everything from lagoon.toml
 type Config struct {
-	Packages      []string `toml:"packages"`
-	NixpkgsCommit string   `toml:"nixpkgs_commit"`
-	NixpkgsSHA256 string   `toml:"nixpkgs_sha256"`
-	Profile       string   `toml:"profile"`   // "minimal" or "network"
-	OnEnter       string   `toml:"on_enter,omitempty"` // command to run on sandbox entry
+	Packages      []string          `toml:"packages"`
+	NixpkgsCommit string            `toml:"nixpkgs_commit"`
+	NixpkgsSHA256 string            `toml:"nixpkgs_sha256"`
+	Profile       string            `toml:"profile"`              // "minimal" or "network"
+	OnEnter       string            `toml:"on_enter,omitempty"`   // command to run on sandbox entry
+	Up            map[string]string `toml:"up,omitempty"`         // service name → shell command
 }
 
 // Read parses lagoon.toml from the given path
