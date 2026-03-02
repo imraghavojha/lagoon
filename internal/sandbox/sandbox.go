@@ -12,11 +12,24 @@ import (
 	"github.com/imraghavojha/lagoon/internal/nix"
 )
 
+// validateEnvs checks that every entry in extraEnvs is in KEY=VALUE form.
+func validateEnvs(extraEnvs []string) error {
+	for _, kv := range extraEnvs {
+		if !strings.Contains(kv, "=") {
+			return fmt.Errorf("-e %q: must be KEY=VALUE", kv)
+		}
+	}
+	return nil
+}
+
 // Enter replaces the current process with a bwrap sandbox.
 // cmd is a one-off command to run; empty string opens an interactive shell.
 // memory limits sandbox via systemd-run (e.g. "512m", "1g"); empty = no limit.
 // extraEnvs are additional KEY=VALUE pairs injected into the sandbox.
 func Enter(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd, memory string, extraEnvs []string) error {
+	if err := validateEnvs(extraEnvs); err != nil {
+		return err
+	}
 	bwrap, err := exec.LookPath("bwrap")
 	if err != nil {
 		return fmt.Errorf("bwrap not found: %w", err)
@@ -42,6 +55,9 @@ func Enter(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd, memory st
 // Start launches bwrap as a child process (for watch mode).
 // unlike Enter, the current process is not replaced — the caller manages the subprocess.
 func Start(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd, memory string, extraEnvs []string) (*exec.Cmd, error) {
+	if err := validateEnvs(extraEnvs); err != nil {
+		return nil, err
+	}
 	bwrap, err := exec.LookPath("bwrap")
 	if err != nil {
 		return nil, fmt.Errorf("bwrap not found: %w", err)

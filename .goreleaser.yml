@@ -4,6 +4,8 @@ builds:
   - binary: lagoon
     env:
       - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X github.com/imraghavojha/lagoon/cmd.version={{.Version}}
     goos:
       - linux
     goarch:

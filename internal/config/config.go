@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/BurntSushi/toml"
@@ -28,6 +29,13 @@ func Read(path string) (*Config, error) {
 	var cfg Config
 	if _, err := toml.DecodeFile(path, &cfg); err != nil {
 		return nil, err
+	}
+	// catch typos early — nix-shell gives cryptic errors for bad hashes
+	if len(cfg.NixpkgsCommit) != 40 {
+		return nil, fmt.Errorf("nixpkgs_commit must be a 40-char git hash (got %d chars)", len(cfg.NixpkgsCommit))
+	}
+	if len(cfg.NixpkgsSHA256) != 52 {
+		return nil, fmt.Errorf("nixpkgs_sha256 must be a 52-char nix hash (got %d chars)", len(cfg.NixpkgsSHA256))
 	}
 	return &cfg, nil
 }

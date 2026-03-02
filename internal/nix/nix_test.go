@@ -104,3 +104,16 @@ func TestParseNixErrorGeneric(t *testing.T) {
 		t.Errorf("expected 'nix-shell failed', got: %v", err)
 	}
 }
+
+func TestFilterOutNixEnv(t *testing.T) {
+	in := []string{"HOME=/home/user", "NIX_PATH=/nix/var", "PATH=/usr/bin", "NIX_CONF_DIR=/etc/nix"}
+	out := filterOutNixEnv(in)
+	for _, kv := range out {
+		if strings.HasPrefix(kv, "NIX_") {
+			t.Errorf("NIX_ var must be filtered out: %s", kv)
+		}
+	}
+	if len(out) != 2 {
+		t.Errorf("expected 2 vars after filtering, got %d", len(out))
+	}
+}

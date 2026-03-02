@@ -22,8 +22,13 @@ case "$ARCH" in
 esac
 
 # get the latest release tag from github
-TAG=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
-  | grep '"tag_name"' | cut -d'"' -f4)
+# python3 parses json properly; grep+cut is a fragile fallback
+_json=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest")
+if command -v python3 >/dev/null 2>&1; then
+  TAG=$(printf '%s' "$_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
+else
+  TAG=$(printf '%s' "$_json" | grep '"tag_name"' | cut -d'"' -f4)
+fi
 
 if [ -z "$TAG" ]; then
   echo "error: could not fetch latest release tag"

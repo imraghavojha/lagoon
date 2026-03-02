@@ -65,6 +65,8 @@ func Resolve(shellNixPath string, progress chan<- string) (*ResolvedEnv, error) 
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "nix-shell", shellNixPath, "--run",
 		"which bash && which env && echo $PATH")
+	// strip NIX_* vars so host nix config doesn't influence package resolution
+	cmd.Env = filterOutNixEnv(os.Environ())
 	cmd.Stderr = io.MultiWriter(&stderrBuf, pw)
 
 	done := make(chan struct{})
@@ -134,6 +136,17 @@ func parseResolveOutput(stdout string) (*ResolvedEnv, error) {
 	}
 
 	return &ResolvedEnv{BashPath: bash, EnvPath: env, PATH: strings.Join(nixParts, ":")}, nil
+}
+
+// filterOutNixEnv strips NIX_* variables so host nix config doesn't affect resolution.
+func filterOutNixEnv(env []string) []string {
+	out := env[:0:0] // same backing array, zero len — avoids allocation on happy path
+	for _, kv := range env {
+		if !strings.HasPrefix(kv, "NIX_") {
+			out = append(out, kv)
+		}
+	}
+	return out
 }
 
 // parseNixError turns the raw nix error into something a human can act on

@@ -171,12 +171,15 @@ func TestBuildArgsEnvInjection(t *testing.T) {
 	}
 }
 
-func TestBuildArgsBadEnvSkipped(t *testing.T) {
-	args := buildArgs(fakeCfg("minimal"), fakeEnv(), "/proj", "", []string{"NOEQUALSSIGN"})
-	for i, a := range args {
-		if a == "--setenv" && i+1 < len(args) && args[i+1] == "NOEQUALSSIGN" {
-			t.Error("bad env entry must not produce a --setenv")
-		}
+func TestValidateEnvsBadEntry(t *testing.T) {
+	if err := validateEnvs([]string{"NOEQUALSSIGN"}); err == nil {
+		t.Error("expected error for env entry without =")
+	}
+}
+
+func TestValidateEnvsGoodEntry(t *testing.T) {
+	if err := validateEnvs([]string{"FOO=bar", "X="}); err != nil {
+		t.Errorf("unexpected error for valid env entries: %v", err)
 	}
 }
 
