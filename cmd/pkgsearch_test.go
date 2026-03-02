@@ -83,12 +83,12 @@ func TestSearchModelEmptyDebounceIgnored(t *testing.T) {
 // TestSearchModelResultsPopulate verifies that pkgResultsMsg sets the
 // results list, resets the cursor to 0, and clears any previous error.
 func TestSearchModelResultsPopulate(t *testing.T) {
-	m := newSearchModel()
+	m := setInput(newSearchModel(), "python3")
 	m.searchErr = "previous error"
 	m.cursor = 2
 
 	pkgs := []nixPkg{{"python3", "Python 3"}, {"python311", "Python 3.11"}}
-	m2, _ := sendMsg(m, pkgResultsMsg(pkgs))
+	m2, _ := sendMsg(m, pkgResultsMsg{query: "python3", pkgs: pkgs})
 
 	assert.Len(t, m2.results, 2, "results should be populated")
 	assert.Equal(t, 0, m2.cursor, "cursor should reset to 0 on new results")
@@ -305,19 +305,15 @@ func TestQueryNixpkgsEmptyResults(t *testing.T) {
 // stale results — they get displayed even though they belong to an older query.
 //
 // This test is expected to FAIL with the current implementation. It documents
-// the desired behaviour (stale results should not be shown).
+// stale results (from an earlier query) must not overwrite the display
+// when the user has already typed further.
 func TestSearchModelStaleResultsArriveAfterInputChanged(t *testing.T) {
 	// user typed "python", fetch was triggered, then typed more → "python3"
 	m := setInput(newSearchModel(), "python3")
 
-	// stale results arrive from the earlier "python" fetch
+	// stale results arrive tagged with the old query "python"
 	staleResults := []nixPkg{{"python", "Python"}, {"python2", "Python 2"}}
-	m2, _ := sendMsg(m, pkgResultsMsg(staleResults))
+	m2, _ := sendMsg(m, pkgResultsMsg{query: "python", pkgs: staleResults})
 
-	// desired: stale results should be discarded when input has changed
-	// actual: the code sets m.results unconditionally regardless of query
-	if len(m2.results) > 0 {
-		t.Errorf("BUG: stale results from 'python' query are displayed when input is 'python3'. "+
-			"got %d results, want 0. the searchModel has no way to correlate results to their query.", len(m2.results))
-	}
+	assert.Empty(t, m2.results, "stale results must be discarded when input has advanced")
 }
