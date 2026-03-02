@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -13,13 +14,19 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var nixSearchURL = "https://search.nixos.org/backend/latest-42-nixpkgs-unstable/nix-packages/_search"
+var nixSearchURL = func() string {
+	if v := os.Getenv("LAGOON_NIX_SEARCH_URL"); v != "" {
+		return v
+	}
+	return "https://search.nixos.org/backend/latest-42-nixpkgs-unstable/nix-packages/_search"
+}()
 
 type nixPkg struct{ name, desc string }
 
 type (
 	pkgResultsMsg []nixPkg
 	pkgDebounce   string
+	pkgErrMsg     string
 )
 
 type searchModel struct {
@@ -27,6 +34,7 @@ type searchModel struct {
 	results  []nixPkg
 	cursor   int
 	selected []string
+	searchErr string
 }
 
 func newSearchModel() searchModel {
@@ -70,7 +78,12 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case pkgResultsMsg:
 		m.results = []nixPkg(msg)
+		m.searchErr = ""
 		m.cursor = 0
+		return m, nil
+	case pkgErrMsg:
+		m.results = nil
+		m.searchErr = string(msg)
 		return m, nil
 	}
 
@@ -78,6 +91,7 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
 	if m.input.Value() != prev {
+		m.searchErr = ""
 		return m, tea.Batch(cmd, pkgDebounceCmd(m.input.Value()))
 	}
 	return m, cmd
@@ -92,7 +106,10 @@ func pkgDebounceCmd(q string) tea.Cmd {
 
 func fetchPkgsCmd(q string) tea.Cmd {
 	return func() tea.Msg {
-		pkgs, _ := queryNixpkgs(q)
+		pkgs, err := queryNixpkgs(q)
+		if err != nil {
+			return pkgErrMsg(err.Error())
+		}
 		return pkgResultsMsg(pkgs)
 	}
 }
@@ -152,6 +169,9 @@ func (m searchModel) View() string {
 		} else {
 			fmt.Fprintf(&b, "    %-22s %s\n", p.name, pkgDimStyle.Render(desc))
 		}
+	}
+	if m.searchErr != "" {
+		fmt.Fprintf(&b, "\n  %s\n", fail("✗")+" search failed: "+m.searchErr)
 	}
 	if len(m.selected) > 0 {
 		fmt.Fprintf(&b, "\n  %s %s\n", pkgSelStyle.Render("selected:"), strings.Join(m.selected, " "))

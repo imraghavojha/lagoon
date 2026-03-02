@@ -62,12 +62,18 @@ func runWatch(cmd *cobra.Command, args []string) error {
 	defer watcher.Close()
 
 	// watch all subdirectories so changes in src/, tests/, etc. are caught
+	var dirCount int
 	filepath.WalkDir(absPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || !d.IsDir() {
 			return nil
 		}
+		dirCount++
 		return watcher.Add(path)
 	})
+	// inotify has a per-user watch limit (default 8192). warn early so users know what to do.
+	if dirCount > 500 {
+		fmt.Fprintf(os.Stderr, "%s large project (%d dirs) — if watches fail, run:\n  echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p\n\n", warn("!"), dirCount)
+	}
 
 	fmt.Printf("%s watching %s\n\n", ok("→"), absPath)
 

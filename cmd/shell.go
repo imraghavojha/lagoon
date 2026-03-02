@@ -156,6 +156,7 @@ func projectCacheDir(absPath string) string {
 	if base == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
+			fmt.Fprintln(os.Stderr, warn("!")+" could not determine home dir — using temp dir for cache (lost on reboot)")
 			home = os.TempDir()
 		}
 		base = filepath.Join(home, ".cache")

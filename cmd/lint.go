@@ -37,6 +37,15 @@ func runLint(cmd *cobra.Command, args []string) error {
 		errs = append(errs, `profile must be "minimal" or "network"`)
 	}
 
+	// check for duplicate packages
+	seen := map[string]bool{}
+	for _, pkg := range cfg.Packages {
+		if seen[pkg] {
+			errs = append(errs, "duplicate package: "+pkg)
+		}
+		seen[pkg] = true
+	}
+
 	if len(errs) > 0 {
 		for _, e := range errs {
 			fmt.Println(fail("✗") + "  " + e)
