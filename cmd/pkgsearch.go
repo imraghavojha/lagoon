@@ -24,9 +24,12 @@ var nixSearchURL = func() string {
 type nixPkg struct{ name, desc string }
 
 type (
-	pkgResultsMsg []nixPkg
-	pkgDebounce   string
-	pkgErrMsg     string
+	pkgResultsMsg struct {
+		query string
+		pkgs  []nixPkg
+	}
+	pkgDebounce string
+	pkgErrMsg   string
 )
 
 type searchModel struct {
@@ -77,7 +80,11 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, fetchPkgsCmd(m.input.Value())
 		}
 	case pkgResultsMsg:
-		m.results = []nixPkg(msg)
+		// discard results that arrived for an older query
+		if msg.query != m.input.Value() {
+			return m, nil
+		}
+		m.results = msg.pkgs
 		m.searchErr = ""
 		m.cursor = 0
 		return m, nil
@@ -110,7 +117,7 @@ func fetchPkgsCmd(q string) tea.Cmd {
 		if err != nil {
 			return pkgErrMsg(err.Error())
 		}
-		return pkgResultsMsg(pkgs)
+		return pkgResultsMsg{query: q, pkgs: pkgs}
 	}
 }
 
