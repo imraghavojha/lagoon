@@ -375,6 +375,35 @@ func BenchmarkLintOnePkg(b *testing.B) {
 	}
 }
 
+// TestDockerNixGeneration verifies that GenerateDockerNix writes a valid nix
+// expression containing the commit, sha256, image name, and all packages.
+func TestDockerNixGeneration(t *testing.T) {
+	for _, tc := range knownRepos {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeCfg(t, dir, tc.packages)
+
+			cfg, err := config.Read(filepath.Join(dir, config.Filename))
+			require.NoError(t, err)
+
+			imageName := "lagoon-" + tc.name
+			outPath := filepath.Join(dir, "docker.nix")
+			require.NoError(t, nix.GenerateDockerNix(cfg, outPath, imageName))
+
+			content, err := os.ReadFile(outPath)
+			require.NoError(t, err)
+			s := string(content)
+
+			assert.Contains(t, s, config.DefaultCommit, "commit must appear in docker.nix")
+			assert.Contains(t, s, config.DefaultSHA256, "sha256 must appear in docker.nix")
+			assert.Contains(t, s, imageName, "image name must appear in docker.nix")
+			for _, pkg := range tc.packages {
+				assert.Contains(t, s, pkg, "package %q must appear in docker.nix", pkg)
+			}
+		})
+	}
+}
+
 // TestUpConfigLoadsServices verifies that the [up] table in lagoon.toml is
 // parsed correctly into cfg.Up — no nix or bwrap required.
 func TestUpConfigLoadsServices(t *testing.T) {

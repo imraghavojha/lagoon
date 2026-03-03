@@ -23,7 +23,8 @@ no docker. no root. no daemons. one config file, one command.
 
 run 'lagoon init' to set up a new environment.
 run 'lagoon shell' to enter it.
-run 'lagoon up' to start services accessible at localhost.`,
+run 'lagoon up' to start services accessible at localhost.
+run 'lagoon docker' to export the environment as a Docker image.`,
 }
 
 func Execute() {
@@ -42,6 +43,7 @@ func init() {
 	rootCmd.AddCommand(checkCmd)
 	rootCmd.AddCommand(saveCmd)
 	rootCmd.AddCommand(loadCmd)
+	rootCmd.AddCommand(dockerCmd)
 	rootCmd.AddCommand(watchCmd)
 	rootCmd.AddCommand(versionCmd)
 }

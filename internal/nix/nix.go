@@ -49,6 +49,24 @@ func GenerateShellNix(cfg *config.Config, outPath string) (string, error) {
 	return sum, os.WriteFile(outPath, []byte(content), 0644)
 }
 
+// GenerateDockerNix writes docker.nix to outPath using the docker image template.
+// name is the image name (e.g. "lagoon-myapp").
+func GenerateDockerNix(cfg *config.Config, outPath, name string) error {
+	var lines []string
+	for _, p := range cfg.Packages {
+		lines = append(lines, "    "+p)
+	}
+	content := dockerNixTemplate
+	content = strings.ReplaceAll(content, "{{COMMIT}}", cfg.NixpkgsCommit)
+	content = strings.ReplaceAll(content, "{{SHA256}}", cfg.NixpkgsSHA256)
+	content = strings.ReplaceAll(content, "{{NAME}}", name)
+	content = strings.ReplaceAll(content, "{{PACKAGES}}", strings.Join(lines, "\n"))
+	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(outPath, []byte(content), 0644)
+}
+
 // missingAttrRe matches the nix error for unknown package names
 var missingAttrRe = regexp.MustCompile(`attribute '([^']+)' missing`)
 
