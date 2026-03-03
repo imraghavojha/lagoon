@@ -268,3 +268,12 @@ func TestE2EUpNoServices(t *testing.T) {
 	_, err := run(t, dir, 10*time.Second, "up")
 	assert.Error(t, err, "up must exit non-zero when no services are defined")
 }
+
+// TestE2EDockerNoConfig verifies that lagoon docker fails when lagoon.toml is absent.
+func TestE2EDockerNoConfig(t *testing.T) {
+	dir := t.TempDir() // no lagoon.toml
+
+	out, err := run(t, dir, 10*time.Second, "docker")
+	assert.Error(t, err, "docker must exit non-zero when lagoon.toml is missing")
+	assert.Contains(t, out, "lagoon init", "must tell user to run lagoon init")
+}

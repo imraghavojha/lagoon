@@ -643,6 +643,75 @@ EOF
   cd "$TMPROOT"
 }
 
+test_docker_image_valid() {
+  if [ "${LAGOON_E2E:-0}" != "1" ]; then
+    skip "test_docker_image_valid" "set LAGOON_E2E=1"
+    return
+  fi
+
+  local dir
+  dir=$(mktemp -d "$TMPROOT/docker_XXXXXX")
+  cd "$dir"
+
+  cat > lagoon.toml <<'EOF'
+packages = ["python3"]
+nixpkgs_commit = "LAGOON_TEST_COMMIT"
+nixpkgs_sha256 = "LAGOON_TEST_SHA256"
+profile = "minimal"
+EOF
+
+  # replace placeholders with the real pinned values baked into the binary
+  local commit sha256
+  commit=$(lagoon version 2>/dev/null | grep -oP '(?<=commit )[0-9a-f]{40}' || true)
+  sha256=$(lagoon version 2>/dev/null | grep -oP '(?<=sha256 )[0-9a-z]{52}' || true)
+  if [ -n "$commit" ] && [ -n "$sha256" ]; then
+    sed -i "s/LAGOON_TEST_COMMIT/$commit/" lagoon.toml
+    sed -i "s/LAGOON_TEST_SHA256/$sha256/" lagoon.toml
+  fi
+
+  if ! lagoon docker > myimage.tar 2>/tmp/lagoon_docker.log; then
+    fail "test_docker_image_valid" "lagoon docker exited non-zero"
+    cat /tmp/lagoon_docker.log || true
+    cd "$TMPROOT"
+    return
+  fi
+
+  # image tar must be non-empty
+  local size
+  size=$(stat -c %s myimage.tar 2>/dev/null || stat -f %z myimage.tar 2>/dev/null || echo 0)
+  if [ "$size" -eq 0 ]; then
+    fail "test_docker_image_valid" "image tar is empty"
+    cd "$TMPROOT"
+    return
+  fi
+
+  # valid docker image must contain manifest.json
+  if ! tar tf myimage.tar 2>/dev/null | grep -q "manifest.json"; then
+    fail "test_docker_image_valid" "image tar does not contain manifest.json"
+    cd "$TMPROOT"
+    return
+  fi
+
+  pass "test_docker_image_valid"
+
+  # if docker is available, actually load and run the image
+  if command -v docker >/dev/null 2>&1; then
+    local imgname
+    imgname=$(basename "$dir" | tr '[:upper:]' '[:lower:]')
+    if docker load < myimage.tar >/dev/null 2>&1; then
+      if docker run --rm "lagoon-${imgname}:latest" python3 --version 2>&1 | grep -q "Python 3"; then
+        pass "test_docker_image_runnable"
+      else
+        fail "test_docker_image_runnable" "python3 --version inside docker did not print Python 3"
+      fi
+    else
+      fail "test_docker_image_runnable" "docker load failed"
+    fi
+  fi
+
+  cd "$TMPROOT"
+}
+
 # --------------------------------------------------------------------------
 # run all tests
 # --------------------------------------------------------------------------
@@ -673,6 +742,7 @@ test_clean_removes_cache
 test_network_off_in_minimal_profile
 test_network_on_in_network_profile
 test_up_port_accessible
+test_docker_image_valid
 
 # benchmarks
 bench_cold_start_time
