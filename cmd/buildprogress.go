@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/imraghavojha/lagoon/internal/nix"
 )
 
 type buildModel struct {
@@ -74,4 +75,24 @@ func (m buildModel) View() string {
 		dim.Render(elapsed.String()),
 		dim.Render(line),
 	)
+}
+
+// resolveWithProgress runs nix.Resolve with the bubbletea spinner, returns the env.
+func resolveWithProgress(shellNixPath string) (*nix.ResolvedEnv, error) {
+	progressCh := make(chan string, 50)
+	resultCh := make(chan struct {
+		env *nix.ResolvedEnv
+		err error
+	}, 1)
+	go func() {
+		env, err := nix.Resolve(shellNixPath, progressCh)
+		close(progressCh)
+		resultCh <- struct {
+			env *nix.ResolvedEnv
+			err error
+		}{env, err}
+	}()
+	tea.NewProgram(newBuildModel(progressCh), tea.WithAltScreen()).Run()
+	r := <-resultCh
+	return r.env, r.err
 }

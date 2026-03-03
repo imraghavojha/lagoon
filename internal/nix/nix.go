@@ -26,15 +26,10 @@ type ResolvedEnv struct {
 // GenerateShellNix writes shell.nix to outPath if the content changed.
 // returns the sha256 sum of the generated content for cache lookups.
 func GenerateShellNix(cfg *config.Config, outPath string) (string, error) {
-	var lines []string
-	for _, p := range cfg.Packages {
-		lines = append(lines, "    "+p)
-	}
-
 	content := shellNixTemplate
 	content = strings.ReplaceAll(content, "{{COMMIT}}", cfg.NixpkgsCommit)
 	content = strings.ReplaceAll(content, "{{SHA256}}", cfg.NixpkgsSHA256)
-	content = strings.ReplaceAll(content, "{{PACKAGES}}", strings.Join(lines, "\n"))
+	content = strings.ReplaceAll(content, "{{PACKAGES}}", "    "+strings.Join(cfg.Packages, "\n    "))
 
 	sum := contentSum([]byte(content))
 
@@ -52,15 +47,11 @@ func GenerateShellNix(cfg *config.Config, outPath string) (string, error) {
 // GenerateDockerNix writes docker.nix to outPath using the docker image template.
 // name is the image name (e.g. "lagoon-myapp").
 func GenerateDockerNix(cfg *config.Config, outPath, name string) error {
-	var lines []string
-	for _, p := range cfg.Packages {
-		lines = append(lines, "    "+p)
-	}
 	content := dockerNixTemplate
 	content = strings.ReplaceAll(content, "{{COMMIT}}", cfg.NixpkgsCommit)
 	content = strings.ReplaceAll(content, "{{SHA256}}", cfg.NixpkgsSHA256)
 	content = strings.ReplaceAll(content, "{{NAME}}", name)
-	content = strings.ReplaceAll(content, "{{PACKAGES}}", strings.Join(lines, "\n"))
+	content = strings.ReplaceAll(content, "{{PACKAGES}}", "    "+strings.Join(cfg.Packages, "\n    "))
 	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
 		return err
 	}

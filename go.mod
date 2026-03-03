@@ -8,8 +8,8 @@ require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/huh v0.6.0
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/fsnotify/fsnotify v1.9.0
 	github.com/spf13/cobra v1.8.1
+	github.com/stretchr/testify v1.10.0
 )
 
 require (
