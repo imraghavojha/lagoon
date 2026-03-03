@@ -1,9 +1,5 @@
-//go:build integration
-
-// integration tests clone real public GitHub repos, write lagoon.toml for each,
-// and verify the lint workflow against a mock nixpkgs API.
-// requires: git in PATH and internet access for git clone.
-// run with: go test -tags integration ./tests/integration/...
+// integration tests write lagoon.toml and verify config/nix generation.
+// tests that clone real repos require git in PATH — skip automatically if absent.
 package integration
 
 import (

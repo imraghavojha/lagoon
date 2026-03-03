@@ -1,16 +1,7 @@
-//go:build e2e
-
-// e2e tests exercise the lagoon binary end-to-end on a real Linux system
-// with bwrap and nix-shell available.
-//
-// These tests require:
-//   - a compiled 'lagoon' binary in $PATH or $LAGOON_BIN
-//   - bwrap in PATH
-//   - nix-shell in PATH
-//   - a valid nixpkgs pin (DefaultCommit must be a real commit, not placeholder)
-//
-// Run: go test -tags e2e ./tests/e2e/... -timeout 30m
-// With specific binary: LAGOON_BIN=/path/to/lagoon go test -tags e2e ./tests/e2e/...
+// e2e tests exercise the lagoon binary end-to-end.
+// requires a compiled 'lagoon' binary in $PATH or $LAGOON_BIN.
+// tests that need bwrap or nix-shell skip automatically when those aren't present.
+// slow nix builds require LAGOON_SLOW_E2E=1.
 package e2e
 
 import (
