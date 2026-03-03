@@ -308,7 +308,7 @@
   @media (max-width: 1024px) {
     nav { padding: 0 24px; }
     .menu-toggle { display: flex; }
-    
+
     .nav-links {
       position: fixed;
       top: 62px;
@@ -343,13 +343,13 @@
     }
 
     .container { grid-template-columns: minmax(0, 1fr); }
-    .sidebar { 
-      position: relative; 
-      height: auto; 
-      top: 0; 
-      border-right: none; 
-      border-bottom: 1px solid var(--border); 
-      padding: 24px; 
+    .sidebar {
+      position: relative;
+      height: auto;
+      top: 0;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding: 24px;
       max-height: 300px;
       width: 100%;
     }
@@ -372,7 +372,7 @@
 <!-- NAV -->
 <nav>
   <a href="index.html" class="logo">lagoon<span>_</span></a>
-  
+
   <button class="menu-toggle" id="menuToggle">
     <span></span>
     <span></span>
@@ -382,7 +382,7 @@
   <ul class="nav-links" id="navLinks">
     <li><a href="index.html">Home</a></li>
     <li><a href="#" class="active">Docs</a></li>
-    <li><a href="https://github.com/imraghavojha/lagoon">GitHub ↗</a></li>
+    <li><a href="https://github.com/imraghavojha/lagoon">GitHub &#8599;</a></li>
     <li><a href="index.html#install" class="nav-cta">Get started</a></li>
   </ul>
 </nav>
@@ -406,18 +406,20 @@
       <li><a href="#reproducibility">Reproducibility</a></li>
     </ul>
 
-    <div class="sidebar-title">Usage</div>
+    <div class="sidebar-title">Commands</div>
     <ul class="sidebar-nav">
       <li><a href="#init">lagoon init</a></li>
       <li><a href="#shell">lagoon shell</a></li>
+      <li><a href="#run">lagoon run</a></li>
+      <li><a href="#up">lagoon up</a></li>
+      <li><a href="#docker">lagoon docker</a></li>
       <li><a href="#watch">lagoon watch</a></li>
-      <li><a href="#verify">lagoon verify</a></li>
-      <li><a href="#lint">lagoon lint</a></li>
-      <li><a href="#status">lagoon status</a></li>
-      <li><a href="#stats">lagoon stats</a></li>
-      <li><a href="#export-import">lagoon export/import</a></li>
-      <li><a href="#clean">lagoon clean</a></li>
-      <li><a href="#config">Configuration</a></li>
+      <li><a href="#ps">lagoon ps</a></li>
+      <li><a href="#rm">lagoon rm</a></li>
+      <li><a href="#check">lagoon check</a></li>
+      <li><a href="#save">lagoon save</a></li>
+      <li><a href="#load">lagoon load</a></li>
+      <li><a href="#version">lagoon version</a></li>
     </ul>
 
     <div class="sidebar-title">Reference</div>
@@ -438,13 +440,27 @@
         Reproducible sandboxed shell environments. No Docker. No root. No daemons.
       </p>
       <p>
-        <strong>lagoon</strong> creates isolated shell environments with exactly the tools you need. 
+        <strong>lagoon</strong> creates isolated shell environments with exactly the tools you need.
         Commit one config file and everyone on your team — plus that Raspberry Pi — gets an identical environment.
       </p>
       <p>
-        It uses <strong>bwrap</strong> (bubblewrap) for isolation and <strong>nix</strong> for reproducibility. 
+        It uses <strong>bwrap</strong> (bubblewrap) for isolation and <strong>nix</strong> for reproducibility.
         First run builds the environment. Next runs start instantly.
       </p>
+
+      <h3>Command overview</h3>
+      <div class="cmd"><span class="output">lagoon init      create lagoon.toml interactively (live nixpkgs search)
+lagoon shell     enter the sandboxed environment
+lagoon run       run a one-off command in the sandbox
+lagoon up        start services from [up] config at localhost ports
+lagoon docker    export environment as a Docker image tar
+lagoon watch     restart a command on file changes
+lagoon ps        show status and running sandbox info
+lagoon rm        remove cached environment for this project
+lagoon check     validate lagoon.toml and verify closure integrity
+lagoon save      export environment to .nar file (offline transfer)
+lagoon load      import environment from .nar file
+lagoon version   print version and pinned nixpkgs commit</span></div>
     </section>
 
     <!-- INSTALL -->
@@ -463,10 +479,10 @@
       <div class="cmd"><span class="prompt">$</span> curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh | bash</div>
 
       <p>Verify it works:</p>
-      <div class="cmd"><span class="prompt">$</span> lagoon --version</div>
+      <div class="cmd"><span class="prompt">$</span> lagoon version</div>
 
       <div class="note">
-        <strong>On ARM:</strong> Some packages may compile from source on first use. Subsequent runs are instant.
+        <strong>On ARM:</strong> Some packages may compile from source on first use. Subsequent runs are instant from cache.
       </div>
     </section>
 
@@ -478,8 +494,8 @@
       <p>In your project directory:</p>
       <div class="cmd"><span class="prompt">$</span> lagoon init</div>
 
-      <p>Follow the TUI to search for packages and set your profile. This creates <code>lagoon.toml</code>. Commit it to version control:</p>
-      <div class="cmd"><span class="prompt">$</span> git add lagoon.toml && git commit -m "add lagoon environment"</div>
+      <p>Follow the TUI to search for packages and set your profile. This creates <code>lagoon.toml</code>. Commit it:</p>
+      <div class="cmd"><span class="prompt">$</span> git add lagoon.toml &amp;&amp; git commit -m "add lagoon environment"</div>
 
       <h3>2. Enter the sandbox</h3>
       <div class="cmd"><span class="prompt">$</span> lagoon shell</div>
@@ -488,9 +504,9 @@
 
       <h3>3. Use it</h3>
       <div class="cmd"><span class="prompt">[lagoon] /workspace $</span> python3 --version
-<span class="output">Python 3.11.8</span>
-<span class="prompt">[lagoon] /workspace $</span> ffmpeg -version | head -1
-<span class="output">ffmpeg version 6.1.1</span></div>
+<span class="output">Python 3.11.x</span>
+<span class="prompt">[lagoon] /workspace $</span> node --version
+<span class="output">v20.x.x</span></div>
 
       <h3>4. Exit</h3>
       <div class="cmd"><span class="prompt">[lagoon] /workspace $</span> exit</div>
@@ -502,9 +518,7 @@
     <section id="how-it-works">
       <h2>How It Works</h2>
 
-      <p>
-        lagoon combines three core technologies:
-      </p>
+      <p>lagoon combines three core technologies:</p>
 
       <div class="grid-3">
         <div class="box">
@@ -521,9 +535,7 @@
         </div>
       </div>
 
-      <p>
-        When you run <code>lagoon shell</code>:
-      </p>
+      <p>When you run <code>lagoon shell</code>:</p>
 
       <ol>
         <li>lagoon reads <code>lagoon.toml</code> and generates <code>shell.nix</code></li>
@@ -549,9 +561,7 @@
     <section id="isolation">
       <h2>Isolation</h2>
 
-      <p>
-        Your sandbox is isolated by default. Here's what's blocked:
-      </p>
+      <p>Your sandbox is isolated by default. Here's what's blocked:</p>
 
       <div class="grid-2">
         <div class="box">
@@ -572,23 +582,19 @@
         </div>
       </div>
 
-      <p>
-        <strong>To enable network:</strong> Set <code>profile = "network"</code> in <code>lagoon.toml</code>.
-      </p>
+      <p><strong>To enable network:</strong> Set <code>profile = "network"</code> in <code>lagoon.toml</code>.</p>
     </section>
 
     <!-- REPRODUCIBILITY -->
     <section id="reproducibility">
       <h2>Reproducibility</h2>
 
-      <p>
-        One <code>lagoon.toml</code> file guarantees identical environments everywhere.
-      </p>
+      <p>One <code>lagoon.toml</code> file guarantees identical environments everywhere.</p>
 
       <p>
-        Each lagoon binary ships with a <strong>pinned nixpkgs commit</strong>. 
-        When you run <code>lagoon init</code>, it bakes that pin into <code>lagoon.toml</code>. 
-        If you commit this file, anyone — your teammate, your CI, a Raspberry Pi — who runs <code>lagoon shell</code> gets the exact same package versions.
+        Each lagoon binary ships with a <strong>pinned nixpkgs commit</strong>.
+        When you run <code>lagoon init</code>, it bakes that pin into <code>lagoon.toml</code>.
+        Anyone — your teammate, your CI, a Raspberry Pi — who runs <code>lagoon shell</code> gets the exact same package versions.
       </p>
 
       <div class="note">
@@ -596,8 +602,8 @@
       </div>
 
       <p>
-        <strong>To update packages:</strong> Edit <code>lagoon.toml</code> and update <code>nixpkgs_commit</code> &amp; <code>nixpkgs_sha256</code>. 
-        Or run <code>lagoon init</code> again — it will prompt to overwrite.
+        <strong>To update packages:</strong> Edit <code>lagoon.toml</code> directly and change the packages list.
+        To update the nixpkgs pin, run <code>lagoon init</code> again — it will prompt to overwrite.
       </p>
     </section>
 
@@ -605,199 +611,278 @@
     <section id="init">
       <h2>lagoon init</h2>
 
-      <p>
-        Interactive setup for your project. Launches a live nixpkgs search TUI.
-      </p>
+      <p>Interactive setup for your project. Launches a live nixpkgs search TUI.</p>
 
       <div class="cmd"><span class="prompt">$</span> lagoon init</div>
 
-      <p>
-        <strong>What it does:</strong>
-      </p>
       <ul>
-        <li><strong>Live Search:</strong> Queries <a href="https://search.nixos.org/packages" style="color:var(--accent2); font-weight:600;">search.nixos.org</a> as you type.</li>
+        <li><strong>Live Search:</strong> Queries <a href="https://search.nixos.org/packages" style="color:var(--accent2); font-weight:600;">search.nixos.org</a> as you type with debounced results.</li>
         <li><strong>Interactive Selection:</strong> Use arrow keys to pick packages and toggle network access.</li>
-        <li><strong>Preview & Confirm:</strong> Shows exactly what will be written to <code>lagoon.toml</code> before saving.</li>
+        <li><strong>Preview &amp; Confirm:</strong> Shows exactly what will be written before saving.</li>
+        <li><strong>Overwrite guard:</strong> If <code>lagoon.toml</code> exists, lagoon asks before overwriting.</li>
       </ul>
 
-      <p>
-        <strong>Overwrite guard:</strong> If <code>lagoon.toml</code> exists, lagoon asks before overwriting.
-      </p>
-
-      <p>
-        After creation, commit the file:
-      </p>
-      <div class="cmd"><span class="prompt">$</span> git add lagoon.toml && git commit -m "add lagoon environment"</div>
+      <div class="cmd"><span class="prompt">$</span> git add lagoon.toml &amp;&amp; git commit -m "add lagoon environment"</div>
     </section>
 
     <!-- SHELL -->
     <section id="shell">
       <h2>lagoon shell</h2>
 
-      <p>
-        Enters the sandboxed environment defined in <code>lagoon.toml</code>.
-      </p>
+      <p>Enters the sandboxed environment defined in <code>lagoon.toml</code>.</p>
 
       <div class="cmd"><span class="prompt">$</span> lagoon shell</div>
 
-      <p>
-        First run builds the environment (may take minutes on ARM). Subsequent runs are instant (from cache).
-      </p>
+      <p>First run builds the environment (may take minutes on ARM). Subsequent runs are instant (from cache).</p>
 
       <h3>Inside the sandbox</h3>
       <ul>
         <li><code>/workspace</code> — Your project directory (read/write)</li>
         <li><code>$HOME</code> — <code>/home</code> (ephemeral)</li>
         <li><code>$PATH</code> — Only nix packages you requested</li>
-        <li><code>Network</code> — Off by default (unless profile="network")</li>
+        <li>Network — Off by default (unless <code>profile = "network"</code>)</li>
       </ul>
 
       <h3>Flags</h3>
       <ul>
-        <li><code>--cmd</code> — Run a one-off command and exit (e.g., <code>lagoon shell --cmd "make test"</code>).</li>
-        <li><code>--env</code>, <code>-e</code> — Inject environment variables (e.g., <code>-e DEBUG=1</code>).</li>
-        <li><code>--memory</code>, <code>-m</code> — Cap sandbox memory via systemd-run (e.g., <code>-m 512m</code>). <em>Requires systemd.</em></li>
+        <li><code>--cmd</code> — Run a one-off command and exit (see also <code>lagoon run</code>).</li>
+        <li><code>--env</code>, <code>-e</code> — Inject environment variables (e.g., <code>-e DEBUG=1</code>). Can be repeated.</li>
+        <li><code>--memory</code>, <code>-m</code> — Cap sandbox memory via systemd-run (e.g., <code>-m 512m</code>). Requires systemd.</li>
       </ul>
+    </section>
+
+    <!-- RUN -->
+    <section id="run">
+      <h2>lagoon run</h2>
+
+      <p>Runs a one-off command in the sandbox and exits. Shorthand for <code>lagoon shell --cmd</code>.</p>
+
+      <div class="cmd"><span class="prompt">$</span> lagoon run python3 --version
+<span class="output">Python 3.11.x</span>
+
+<span class="prompt">$</span> lagoon run make test</div>
+
+      <p>Supports the same <code>-e</code> and <code>-m</code> flags as <code>lagoon shell</code>.</p>
+
+      <div class="note">
+        <strong>CI usage:</strong> Use <code>lagoon run</code> in scripts and pipelines where you don't need an interactive shell.
+      </div>
+    </section>
+
+    <!-- UP -->
+    <section id="up">
+      <h2>lagoon up</h2>
+
+      <p>
+        Starts all services defined in the <code>[up]</code> section of <code>lagoon.toml</code>, each inside the sandbox,
+        with their ports accessible at real localhost addresses — like <code>docker-compose up</code>.
+      </p>
+
+      <div class="cmd"><span class="prompt">$</span> lagoon up
+<span class="output">! services run with network access enabled
+web | node server.js listening on :3000
+api | python3 manage.py runserver 0.0.0.0:8000</span></div>
+
+      <h3>Configuration</h3>
+      <p>Add an <code>[up]</code> section to <code>lagoon.toml</code>:</p>
+      <div class="toml-block"><span class="toml-key">packages</span> = [<span class="toml-str">"python3"</span>, <span class="toml-str">"nodejs"</span>]
+<span class="toml-key">profile</span> = <span class="toml-str">"minimal"</span>
+
+<span class="toml-comment"># services started by lagoon up</span>
+[<span class="toml-key">up</span>]
+<span class="toml-key">web</span> = <span class="toml-str">"node server.js"</span>
+<span class="toml-key">api</span> = <span class="toml-str">"python3 manage.py runserver 0.0.0.0:8000"</span></div>
+
+      <ul>
+        <li><strong>Multiplexed output:</strong> Each service gets a colored prefix so logs don't mix.</li>
+        <li><strong>Real localhost ports:</strong> Services always run with network access, so they bind to your host's loopback interface.</li>
+        <li><strong>Graceful shutdown:</strong> Ctrl+C sends SIGTERM to all services, then SIGKILL after 500ms.</li>
+        <li><strong>Sorted start order:</strong> Services start alphabetically for deterministic output.</li>
+      </ul>
+
+      <div class="note">
+        <strong>Network note:</strong> <code>lagoon up</code> always enables network access regardless of your <code>profile</code> setting.
+        Services need to bind to localhost ports. lagoon prints a note about this at startup.
+      </div>
+    </section>
+
+    <!-- DOCKER -->
+    <section id="docker">
+      <h2>lagoon docker</h2>
+
+      <p>Exports your environment as a Docker-loadable image tar. No Docker daemon required to build it.</p>
+
+      <div class="cmd"><span class="prompt">$</span> lagoon docker > myimage.tar
+<span class="output">-> building docker image lagoon-myproject:latest (first run may be slow)...
+✓ built /nix/store/xxx-lagoon-myproject.tar.gz</span>
+
+<span class="prompt">$</span> docker load &lt; myimage.tar
+<span class="prompt">$</span> docker run -it lagoon-myproject:latest</div>
+
+      <h3>How it works</h3>
+      <p>
+        lagoon generates a <code>docker.nix</code> expression using <code>nixpkgs.dockerTools.buildLayeredImage</code> —
+        nix's native Docker image builder — then runs <code>nix-build</code> to produce a layered OCI image.
+        The result streams to stdout, so redirect it to a file.
+      </p>
+
+      <ul>
+        <li><strong>Image name:</strong> Derived from your project directory — e.g., <code>lagoon-myproject:latest</code>.</li>
+        <li><strong>Layered:</strong> Uses <code>buildLayeredImage</code> for optimal layer caching in Docker.</li>
+        <li><strong>No daemon:</strong> Built entirely with nix — Docker doesn't need to be running on the build machine.</li>
+        <li><strong>stdout-safe:</strong> Refuses to write binary to a terminal; you must redirect to a file.</li>
+      </ul>
+
+      <div class="note">
+        <strong>Use case:</strong> Build your reproducible environment on a Pi or CI server, then ship the image to any container registry or runtime — without ever running Docker during the build.
+      </div>
     </section>
 
     <!-- WATCH -->
     <section id="watch">
       <h2>lagoon watch</h2>
-      <p>
-        Live reload for your sandbox. Watches the current directory for file changes and automatically restarts your command.
-      </p>
+      <p>Live reload for your sandbox. Watches the current directory for file changes and automatically restarts your command.</p>
       <div class="cmd"><span class="prompt">$</span> lagoon watch "python3 server.py"</div>
-      <p>
-        <strong>Key behaviors:</strong>
-      </p>
       <ul>
         <li><strong>Debounce:</strong> 300ms delay prevents rapid-fire restarts while saving multiple files.</li>
         <li><strong>Sandbox mode:</strong> The command runs inside the same isolated environment as <code>lagoon shell</code>.</li>
-        <li><strong>Requirement:</strong> Requires a warm cache. Run <code>lagoon shell</code> once first to build the environment.</li>
+        <li><strong>Warm cache required:</strong> Run <code>lagoon shell</code> once first to build the environment.</li>
       </ul>
     </section>
 
-    <!-- VERIFY -->
-    <section id="verify">
-      <h2>lagoon verify</h2>
+    <!-- PS -->
+    <section id="ps">
+      <h2>lagoon ps</h2>
       <p>
-        Cryptographic tamper detection. Proves that your environment hasn't drifted or been modified.
+        Shows the current project's environment status and any running sandbox processes.
       </p>
-      <div class="cmd"><span class="prompt">$</span> lagoon verify</div>
-      <p>
-        <strong>How it works:</strong>
-      </p>
+      <div class="cmd"><span class="prompt">$</span> lagoon ps
+<span class="output">project   myproject
+packages  python3  nodejs
+profile   minimal
+cached    yes
+
+PID    MEMORY    PROJECT    PACKAGES
+12345  42.1 MB   myproject  python3 nodejs</span></div>
       <ul>
-        <li><strong>Fingerprinting:</strong> Calculates a combined SHA256 of all nix store paths in your environment's closure.</li>
-        <li><strong>Baseline:</strong> The first run sets a baseline in <code>~/.cache/lagoon/</code>.</li>
-        <li><strong>Validation:</strong> Subsequent runs compare the live closure against the baseline and fail if a single byte differs.</li>
-        <li><strong>Reset:</strong> To set a new baseline, delete the <code>closure.fingerprint</code> file in the project's cache directory.</li>
+        <li><strong>Project block:</strong> packages, profile, and whether the environment is cached and ready.</li>
+        <li><strong>Process table:</strong> PIDs of any running sandbox processes with memory usage (VmRSS from <code>/proc</code>).</li>
       </ul>
+      <div class="note">
+        <strong>No config?</strong> <code>lagoon ps</code> exits 0 and suggests running <code>lagoon init</code>. It's informational, never a hard gate.
+      </div>
     </section>
 
-    <!-- LINT -->
-    <section id="lint">
-      <h2>lagoon lint</h2>
-      <p>
-        Validates the structure and packages of your <code>lagoon.toml</code>.
-      </p>
-      <div class="cmd"><span class="prompt">$</span> lagoon lint</div>
-      <p>
-        <strong>What it checks:</strong>
-      </p>
-      <ul>
-        <li><strong>Schema:</strong> Ensures all required fields (packages, commit, sha256) are present and valid.</li>
-        <li><strong>Package Existence:</strong> Queries nixpkgs live to verify every package in your list actually exists.</li>
-        <li><strong>Offline Mode:</strong> If no internet is detected, it skips existence checks and warns instead of failing.</li>
-      </ul>
-    </section>
+    <!-- RM -->
+    <section id="rm">
+      <h2>lagoon rm</h2>
 
-    <!-- STATUS -->
-    <section id="status">
-      <h2>lagoon status</h2>
-      <p>
-        Provides a quick overview of the current project's environment status.
-      </p>
-      <div class="cmd"><span class="prompt">$</span> lagoon status</div>
-      <p>
-        Shows the list of packages, the active profile, and whether the environment is currently cached and ready for instant start.
-      </p>
-    </section>
+      <p>Removes the cached environment for the current project.</p>
 
-    <!-- STATS -->
-    <section id="stats">
-      <h2>lagoon stats</h2>
-      <p>
-        Live resource monitoring for running sandboxes.
-      </p>
-      <div class="cmd"><span class="prompt">$</span> lagoon stats</div>
-      <p>
-        Displays a table of all active lagoon processes, including PID, memory usage (VmRSS), packages, and project paths. <em>Linux only.</em>
-      </p>
-    </section>
+      <div class="cmd"><span class="prompt">$</span> lagoon rm</div>
 
-    <!-- EXPORT/IMPORT -->
-    <section id="export-import">
-      <h2>lagoon export/import</h2>
-      <p>
-        Snapshots your environment for air-gapped deployments or offline transfer.
-      </p>
-      
-      <h3>Export</h3>
-      <p>Dumps the entire environment closure to a <code>.nar</code> file.</p>
-      <div class="cmd"><span class="prompt">$</span> lagoon export > environment.nar</div>
-      
-      <h3>Import</h3>
-      <p>Restores an exported closure on a machine without internet access.</p>
-      <div class="cmd"><span class="prompt">$</span> lagoon import environment.nar</div>
-      
-      <p>
-        <strong>Use cases:</strong> Raspberry Pis behind firewalls, secure CI environments, or lab machines with no external connectivity.
-      </p>
-    </section>
-
-    <!-- CLEAN -->
-    <section id="clean">
-      <h2>lagoon clean</h2>
-
-      <p>
-        Removes the cached environment for the current project.
-      </p>
-
-      <div class="cmd"><span class="prompt">$</span> lagoon clean</div>
-
-      <p>
-        Use this to force a rebuild. The next <code>lagoon shell</code> will regenerate everything.
-      </p>
+      <p>Use this to force a rebuild. The next <code>lagoon shell</code> will regenerate everything from scratch.</p>
 
       <div class="note">
         <strong>Cache location:</strong> <code>~/.cache/lagoon/</code>. Each project gets a hash-based subdirectory.
+        <code>lagoon rm</code> only removes the current project's directory — other projects are untouched.
       </div>
     </section>
 
-    <!-- CONFIG -->
-    <section id="config">
-      <h2>Configuration</h2>
+    <!-- CHECK -->
+    <section id="check">
+      <h2>lagoon check</h2>
+      <p>
+        Validates the structure and packages of your <code>lagoon.toml</code> and verifies cryptographic closure integrity.
+      </p>
+      <div class="cmd"><span class="prompt">$</span> lagoon check</div>
+
+      <ul>
+        <li><strong>Schema:</strong> Ensures packages, commit, and sha256 are present and correctly formatted.</li>
+        <li><strong>No duplicates:</strong> Catches duplicate package names before any expensive nix operations.</li>
+        <li><strong>Package existence:</strong> Queries nixpkgs live to verify every package actually exists.</li>
+        <li><strong>Offline mode:</strong> If no internet is detected, skips existence checks and warns instead of failing.</li>
+        <li><strong>Closure fingerprint:</strong> SHA256 of all nix store paths. First run sets a baseline; subsequent runs compare against it.</li>
+      </ul>
+
+      <h3>Flags</h3>
+      <ul>
+        <li><code>--reset</code> — Wipe the closure baseline and re-establish it from the current environment. Use this after intentionally updating packages.</li>
+      </ul>
+
+      <div class="cmd"><span class="prompt">$</span> lagoon check --reset</div>
+    </section>
+
+    <!-- SAVE -->
+    <section id="save">
+      <h2>lagoon save</h2>
+      <p>Snapshots your environment for air-gapped deployments or offline transfer.</p>
+
+      <div class="cmd"><span class="prompt">$</span> lagoon save > environment.nar
+<span class="output">-> exporting 47 store paths...</span></div>
 
       <p>
-        lagoon reads a single config file: <code>lagoon.toml</code>
+        Dumps the entire environment closure to a binary <code>.nar</code> file using <code>nix-store --export</code>.
+        Requires a warm cache — run <code>lagoon shell</code> first.
       </p>
 
-      <h3>Default location</h3>
+      <p><strong>Use cases:</strong> Raspberry Pis behind firewalls, secure CI environments, or lab machines with no external connectivity.</p>
+    </section>
+
+    <!-- LOAD -->
+    <section id="load">
+      <h2>lagoon load</h2>
+      <p>Restores an exported closure on a machine without internet access.</p>
+
+      <div class="cmd"><span class="prompt">$</span> lagoon load environment.nar
+<span class="output">-> importing from environment.nar...</span></div>
+
       <p>
-        <code>lagoon.toml</code> in your project root (same directory where you run <code>lagoon init</code>).
+        Calls <code>nix-store --import</code> under the hood.
+        After loading, run <code>lagoon shell</code> normally — the environment will be available instantly from cache.
       </p>
+    </section>
 
-      <h3>File format</h3>
-      <div class="toml-block">
-<span class="toml-comment"># lagoon.toml</span>
-<span class="toml-key">packages</span> = [<span class="toml-str">"python311"</span>, <span class="toml-str">"ffmpeg"</span>, <span class="toml-str">"cowsay"</span>]
-<br>
+    <!-- VERSION -->
+    <section id="version">
+      <h2>lagoon version</h2>
+      <p>Prints the lagoon version and the pinned nixpkgs commit baked into the binary.</p>
+      <div class="cmd"><span class="prompt">$</span> lagoon version
+<span class="output">lagoon v0.3
+nixpkgs commit 26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915</span></div>
+    </section>
+
+    <!-- TOML FORMAT -->
+    <section id="toml-format">
+      <h2>lagoon.toml Format Reference</h2>
+
+      <p>lagoon reads a single config file: <code>lagoon.toml</code> in your project root.</p>
+
+      <h3>Full example</h3>
+      <div class="toml-block"><span class="toml-comment"># lagoon.toml — commit this file</span>
+
+<span class="toml-key">packages</span> = [<span class="toml-str">"python3"</span>, <span class="toml-str">"nodejs"</span>, <span class="toml-str">"ffmpeg"</span>]
+
+<span class="toml-comment"># pinned nixpkgs commit — same environment in 2027</span>
 <span class="toml-key">nixpkgs_commit</span> = <span class="toml-str">"26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915"</span>
 <span class="toml-key">nixpkgs_sha256</span> = <span class="toml-str">"1knl8dcr5ip70a2vbky3q844212crwrvybyw2nhfmgm1mvqry963"</span>
+
+<span class="toml-comment"># "minimal" = no network | "network" = host network</span>
 <span class="toml-key">profile</span> = <span class="toml-str">"minimal"</span>
+
+<span class="toml-comment"># optional: runs on every shell entry</span>
 <span class="toml-key">on_enter</span> = <span class="toml-str">"source .venv/bin/activate"</span>
-      </div>
+
+<span class="toml-comment"># optional: services for lagoon up</span>
+[<span class="toml-key">up</span>]
+<span class="toml-key">web</span> = <span class="toml-str">"node server.js"</span>
+<span class="toml-key">api</span> = <span class="toml-str">"python3 manage.py runserver 0.0.0.0:8000"</span></div>
+
+      <h3>Minimal example</h3>
+      <div class="toml-block"><span class="toml-key">packages</span> = [<span class="toml-str">"cowsay"</span>]
+<span class="toml-key">nixpkgs_commit</span> = <span class="toml-str">"26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915"</span>
+<span class="toml-key">nixpkgs_sha256</span> = <span class="toml-str">"1knl8dcr5ip70a2vbky3q844212crwrvybyw2nhfmgm1mvqry963"</span>
+<span class="toml-key">profile</span> = <span class="toml-str">"minimal"</span></div>
 
       <h3>Options</h3>
 
@@ -808,52 +893,31 @@
 
       <div class="box">
         <h4 style="margin-top: 0;"><code>nixpkgs_commit</code></h4>
-        <p><strong>Required.</strong> Git commit hash of nixpkgs-unstable. Auto-set by <code>lagoon init</code>.</p>
+        <p><strong>Required.</strong> 40-character git commit hash of nixpkgs-unstable. Auto-set by <code>lagoon init</code>.</p>
       </div>
 
       <div class="box">
         <h4 style="margin-top: 0;"><code>nixpkgs_sha256</code></h4>
-        <p><strong>Required.</strong> SHA256 of the nixpkgs tarball. Auto-set by <code>lagoon init</code>.</p>
+        <p><strong>Required.</strong> 52-character SHA256 of the nixpkgs tarball. Auto-set by <code>lagoon init</code>.</p>
       </div>
 
       <div class="box">
         <h4 style="margin-top: 0;"><code>profile</code></h4>
-        <p><strong>Optional.</strong> Either <code>"minimal"</code> (no network) or <code>"network"</code> (network enabled). Default: <code>"minimal"</code>.</p>
+        <p><strong>Optional.</strong> Either <code>"minimal"</code> (no network) or <code>"network"</code> (host network enabled). Default: <code>"minimal"</code>.</p>
       </div>
 
       <div class="box">
         <h4 style="margin-top: 0;"><code>on_enter</code></h4>
-        <p><strong>Optional.</strong> A shell command to run every time the sandbox starts. For interactive shells, it runs before handing control to bash. For <code>--cmd</code>, it runs before the command executes. Example: <code>on_enter = "source .venv/bin/activate"</code>.</p>
-      </div>
-    </section>
-
-    <!-- TOML FORMAT -->
-    <section id="toml-format">
-      <h2>lagoon.toml Format Reference</h2>
-
-      <h3>Full example</h3>
-      <div class="toml-block">
-<span class="toml-comment"># This environment has Python, FFmpeg, and network access</span>
-<span class="toml-key">packages</span> = [<span class="toml-str">"python311"</span>, <span class="toml-str">"pip"</span>, <span class="toml-str">"ffmpeg"</span>]
-<br>
-<span class="toml-comment"># Pinned to a specific nixpkgs-unstable commit</span>
-<span class="toml-key">nixpkgs_commit</span> = <span class="toml-str">"26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915"</span>
-<span class="toml-key">nixpkgs_sha256</span> = <span class="toml-str">"1knl8dcr5ip70a2vbky3q844212crwrvybyw2nhfmgm1mvqry963"</span>
-<span class="toml-comment"># Network is enabled for this environment</span>
-<span class="toml-key">profile</span> = <span class="toml-str">"network"</span>
+        <p><strong>Optional.</strong> A shell command run every time the sandbox starts — before handing control to bash or before <code>--cmd</code> executes. Example: <code>"source .venv/bin/activate"</code>.</p>
       </div>
 
-      <h3>Minimal example</h3>
-      <div class="toml-block">
-<span class="toml-key">packages</span> = [<span class="toml-str">"cowsay"</span>]
-<br>
-<span class="toml-key">nixpkgs_commit</span> = <span class="toml-str">"26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915"</span>
-<span class="toml-key">nixpkgs_sha256</span> = <span class="toml-str">"1knl8dcr5ip70a2vbky3q844212crwrvybyw2nhfmgm1mvqry963"</span>
-<span class="toml-key">profile</span> = <span class="toml-str">"minimal"</span>
+      <div class="box">
+        <h4 style="margin-top: 0;"><code>[up]</code></h4>
+        <p><strong>Optional.</strong> A TOML table mapping service names to shell commands. Used by <code>lagoon up</code>. Each value is a full shell command run inside the sandbox with network access enabled.</p>
       </div>
 
       <div class="note">
-        <strong>Don't edit commit/sha256 manually.</strong> Run <code>lagoon init</code> to update safely.
+        <strong>Don't edit commit/sha256 manually.</strong> Run <code>lagoon init</code> to update the nixpkgs pin safely.
       </div>
     </section>
 
@@ -861,35 +925,28 @@
     <section id="packages">
       <h2>Finding Packages</h2>
 
-      <p>
-        Package names come from the Nix package collection.
-      </p>
+      <p>Package names come from the Nix package collection.</p>
 
       <h3>Search for packages</h3>
       <p>
         Visit <a href="https://search.nixos.org/packages" style="color:var(--accent2); font-weight:600;">search.nixos.org/packages</a> and search by name.
+        lagoon's <code>init</code> TUI also searches it live as you type.
       </p>
 
-      <p>
-        Examples:
-      </p>
+      <p>Examples:</p>
       <ul>
-        <li><code>python311</code> — Python 3.11</li>
+        <li><code>python3</code> — Python 3</li>
         <li><code>nodejs</code> — Node.js</li>
         <li><code>postgresql</code> — PostgreSQL database</li>
-        <li><code>rustup</code> — Rust toolchain</li>
+        <li><code>rustup</code> — Rust toolchain manager</li>
         <li><code>gcc</code> — C/C++ compiler</li>
         <li><code>git</code> — Version control</li>
+        <li><code>go</code> — Go compiler</li>
+        <li><code>ffmpeg</code> — Audio/video processing</li>
       </ul>
 
-      <h3>Package naming</h3>
-      <p>
-        Nix package names usually match their project names, but not always. 
-        Use the search to find the exact name.
-      </p>
-
       <div class="note">
-        <strong>Typos are caught:</strong> If you misspell a package name, lagoon will show a clean error message.
+        <strong>Typos are caught:</strong> <code>lagoon check</code> queries nixpkgs live to verify every package in your list. Misspelled names show a clean error with a link to the search.
       </div>
     </section>
 
@@ -899,20 +956,31 @@
 
       <h3>Why is first run slow on my Raspberry Pi?</h3>
       <p>
-        Some packages aren't in the binary cache for ARM and compile from source. 
+        Some packages aren't in the binary cache for ARM and compile from source.
         After that, runs are instant from cache.
       </p>
 
       <h3>How do I use lagoon in CI/CD?</h3>
+      <p>Commit <code>lagoon.toml</code> to your repo. In CI, install lagoon, then:</p>
+      <div class="cmd"><span class="prompt">$</span> lagoon run make test</div>
+
+      <h3>How do I run full-stack services?</h3>
       <p>
-        Commit <code>lagoon.toml</code> to your repo. 
-        In CI, install lagoon, then use:
+        Add an <code>[up]</code> section to <code>lagoon.toml</code> and run <code>lagoon up</code>.
+        Each service runs inside the sandbox and is accessible at localhost ports.
+        See the <a href="#up">lagoon up docs</a>.
       </p>
-      <div class="cmd"><span class="prompt">$</span> lagoon shell --cmd "make test"</div>
+
+      <h3>Can I export my environment as a Docker image?</h3>
+      <p>
+        Yes — <code>lagoon docker &gt; myimage.tar</code> builds a layered OCI image from your nix environment.
+        Load it with <code>docker load &lt; myimage.tar</code>.
+        See the <a href="#docker">lagoon docker docs</a>.
+      </p>
 
       <h3>Can I add persistent home directory files?</h3>
       <p>
-        No. Home is ephemeral (tmpfs). 
+        No. Home is ephemeral (tmpfs).
         Project files go in <code>/workspace</code> (your project directory) and persist.
       </p>
 
@@ -922,13 +990,11 @@
       </p>
 
       <h3>Can I modify packages after <code>lagoon init</code>?</h3>
-      <p>
-        Yes. Edit <code>lagoon.toml</code> directly:
-      </p>
+      <p>Yes. Edit <code>lagoon.toml</code> directly:</p>
       <ul>
         <li>Change the <code>packages</code> list</li>
         <li>Set <code>profile = "network"</code> if needed</li>
-        <li>Don't edit commit/sha256 (run <code>lagoon init</code> instead)</li>
+        <li>Run <code>lagoon rm</code> then <code>lagoon shell</code> to pick up the changes</li>
       </ul>
 
       <h3>What's the difference between <code>lagoon shell</code> and Docker?</h3>
@@ -938,8 +1004,9 @@
           <ul style="font-size:0.9rem; margin:0;">
             <li>No daemon</li>
             <li>No root required</li>
-            <li>Instant warm starts (Benchmarks: Raspberry Pi 4, Ubuntu 24.04 LTS)</li>
+            <li>Instant warm starts (&lt;300ms on Pi 4)</li>
             <li>Reproducible via Nix</li>
+            <li>Can export to Docker</li>
             <li>Linux only</li>
           </ul>
         </div>
@@ -957,39 +1024,33 @@
 
       <h3>Can I use lagoon on a Raspberry Pi?</h3>
       <p>
-        Yes! That's the primary target. Install bubblewrap and nix, then <code>curl ... | bash</code> to install lagoon.
+        Yes — that's the primary target. Install bubblewrap and nix, then <code>curl ... | bash</code> to install lagoon.
       </p>
 
       <h3>What if preflight checks fail?</h3>
-      <p>
-        lagoon checks for:
-      </p>
       <ul>
         <li><strong>bubblewrap:</strong> Install with <code>sudo apt install bubblewrap</code></li>
         <li><strong>nix:</strong> Install with <code>sh &lt;(curl -L https://nixos.org/nix/install) --no-daemon</code></li>
         <li><strong>user namespaces:</strong> Check <code>/proc/sys/kernel/unprivileged_userns_clone</code> — should be 1 or absent</li>
       </ul>
 
-      <h3>Where is the nix cache stored?</h3>
+      <h3>Where is the cache stored?</h3>
       <p>
-        Nix stores packages in <code>/nix/store</code> (system-wide, shared). 
+        Nix stores packages in <code>/nix/store</code> (system-wide, shared).
         lagoon caches resolved environments in <code>~/.cache/lagoon/</code>.
-      </p>
-
-      <h3>Can I share my lagoon.toml with my team?</h3>
-      <p>
-        Yes! Commit it to version control. Everyone who runs <code>lagoon shell</code> gets the same environment.
+        Run <code>lagoon rm</code> to wipe the current project's cache.
       </p>
 
       <h3>How do I troubleshoot?</h3>
       <p>
-        If an environment fails to build or start, lagoon prints the underlying error from <code>nix-shell</code> or <code>bwrap</code> below a clear separator. 
+        lagoon prints the underlying error from <code>nix-shell</code> or <code>bwrap</code> below a clear separator.
         Common fixes:
       </p>
       <ul>
-        <li><strong>Package not found:</strong> Verify the spelling at <a href="https://search.nixos.org/packages">search.nixos.org</a> or run <code>lagoon lint</code>.</li>
-        <li><strong>Network errors:</strong> Ensure you have an internet connection for the first run, or set <code>profile = "network"</code> if your build requires it.</li>
-        <li><strong>Stale cache:</strong> Run <code>lagoon clean</code> to force a fresh build of the environment.</li>
+        <li><strong>Package not found:</strong> Verify spelling at <a href="https://search.nixos.org/packages">search.nixos.org</a> or run <code>lagoon check</code>.</li>
+        <li><strong>Network errors:</strong> Ensure internet access for the first build.</li>
+        <li><strong>Stale cache:</strong> Run <code>lagoon rm</code> to force a fresh build.</li>
+        <li><strong>Closure changed:</strong> Run <code>lagoon check --reset</code> to re-establish the baseline after intentional updates.</li>
       </ul>
 
     </section>
@@ -1011,7 +1072,7 @@
   <div class="footer-links">
     <a href="https://github.com/imraghavojha/lagoon">GitHub</a>
     <a href="lagoon-docs.html" class="active">Docs</a>
-    <a href="https://search.nixos.org/packages">Packages ↗</a>
+    <a href="https://search.nixos.org/packages">Packages &#8599;</a>
   </div>
 </footer>
 

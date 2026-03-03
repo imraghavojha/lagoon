@@ -477,7 +477,7 @@
 <!-- HERO -->
 <div class="hero">
   <div>
-    <div class="hero-badge">v0.2 · arm64 + amd64 · linux</div>
+    <div class="hero-badge">v0.3 · arm64 + amd64 · linux</div>
     <h1>A blazing fast<br><em>Docker alternative</em><br>that won't melt<br>your Pi.</h1>
     <p class="hero-sub">
       No daemons. No root. No surprises. One commit gives everyone on your team — and that Pi in the closet — an identical shell.
@@ -684,7 +684,7 @@
     </div>
     <div class="feature-card">
       <h3>Tamper detection</h3>
-      <p>Cryptographic safety. <code>lagoon verify</code> fingerprints every nix store path to prove byte-for-byte that your environment remains unchanged.</p>
+      <p>Cryptographic safety. <code>lagoon check</code> fingerprints every nix store path to prove byte-for-byte that your environment remains unchanged. Reset baseline with <code>--reset</code>.</p>
     </div>
     <div class="feature-card">
       <h3>Memory limits</h3>
@@ -700,7 +700,15 @@
     </div>
     <div class="feature-card">
       <h3>Offline exports</h3>
-      <p>Snapshot environments to <code>.nar</code> files with <code>export</code> and <code>import</code>. Deploy to air-gapped machines without a registry.</p>
+      <p>Snapshot environments to <code>.nar</code> files with <code>lagoon save</code> and <code>lagoon load</code>. Deploy to air-gapped machines without a registry.</p>
+    </div>
+    <div class="feature-card">
+      <h3>Full-stack services</h3>
+      <p><code>lagoon up</code> starts all services in your <code>[up]</code> config, multiplexes their output with colored prefixes, and exposes them at real localhost ports. Ctrl+C stops all.</p>
+    </div>
+    <div class="feature-card">
+      <h3>Docker export</h3>
+      <p>Ship your environment as a Docker image. <code>lagoon docker &gt; myimage.tar</code> builds a layered OCI image — no daemon required. Load it anywhere with <code>docker load</code>.</p>
     </div>
   </div>
 </div>
@@ -722,7 +730,7 @@
 
       <div class="hbar-chart">
         <div class="hbar-row">
-          <div class="hbar-label">lagoon <span class="hbar-sublabel">v0.2</span></div>
+          <div class="hbar-label">lagoon <span class="hbar-sublabel">v0.3</span></div>
           <div class="hbar-track">
             <div class="hbar-fill hbar-lagoon" style="width:12%; justify-content: center;"></div>
           </div>
@@ -766,7 +774,7 @@
       <div class="toml-block">
         <div><span class="tc"># lagoon.toml — commit this</span></div>
         <div>&nbsp;</div>
-        <div><span class="tk">packages</span> = [<span class="ts">"python311"</span>, <span class="ts">"ffmpeg"</span>, <span class="ts">"cowsay"</span>]</div>
+        <div><span class="tk">packages</span> = [<span class="ts">"python3"</span>, <span class="ts">"nodejs"</span>, <span class="ts">"ffmpeg"</span>]</div>
         <div>&nbsp;</div>
         <div><span class="tc"># same binary in 2027</span></div>
         <div><span class="tk">nixpkgs_commit</span> = <span class="ts">"26eaeac4..."</span></div>
@@ -777,6 +785,11 @@
         <div>&nbsp;</div>
         <div><span class="tc"># optional: runs on every shell entry</span></div>
         <div><span class="tk">on_enter</span> = <span class="ts">"source .venv/bin/activate"</span></div>
+        <div>&nbsp;</div>
+        <div><span class="tc"># optional: services for lagoon up</span></div>
+        <div>[<span class="tk">up</span>]</div>
+        <div><span class="tk">web</span> = <span class="ts">"node server.js"</span></div>
+        <div><span class="tk">api</span> = <span class="ts">"python3 manage.py runserver"</span></div>
       </div>
     </div>
   </div>
