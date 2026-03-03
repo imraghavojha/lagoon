@@ -3,34 +3,20 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/imraghavojha/lagoon/internal/config"
-	"github.com/imraghavojha/lagoon/internal/nix"
 	"github.com/spf13/cobra"
 )
-
-var checkReset bool
 
 var checkCmd = &cobra.Command{
 	Use:   "check",
 	Short: "verify lagoon.toml and validate the nix closure",
 	Long: `lagoon check
 
-Validates lagoon.toml structure and confirms every package exists in nixpkgs.
-
-If the environment has been built (lagoon shell), also verifies the nix closure
-fingerprint against a stored baseline — catching unexpected package swaps.
-The baseline is set automatically on first run.
-
-Use --reset to wipe the baseline and re-establish it from the current closure.`,
+Validates lagoon.toml structure and confirms every package exists in nixpkgs.`,
 	RunE: runCheck,
-}
-
-func init() {
-	checkCmd.Flags().BoolVar(&checkReset, "reset", false, "wipe and re-establish the closure baseline")
 }
 
 func runCheck(cmd *cobra.Command, args []string) error {
@@ -79,14 +65,7 @@ func runCheck(cmd *cobra.Command, args []string) error {
 			fmt.Println(warn("?") + "  " + pkg + "  (offline — couldn't verify)")
 			continue
 		}
-		found := false
-		for _, r := range results {
-			if r.name == pkg {
-				found = true
-				break
-			}
-		}
-		if found {
+		if slices.ContainsFunc(results, func(r nixPkg) bool { return r.name == pkg }) {
 			fmt.Println(ok("✓") + "  " + pkg)
 		} else {
 			bad = append(bad, pkg)
@@ -105,57 +84,5 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	if !offline {
 		fmt.Println(ok("✓") + " all packages found in nixpkgs")
 	}
-
-	// closure fingerprint (was verify) — only if environment is cached
-	absPath, _ := filepath.Abs(".")
-	cacheDir := projectCacheDir(absPath)
-	shellNixPath := filepath.Join(cacheDir, "shell.nix")
-
-	sum, err := nix.GenerateShellNix(cfg, shellNixPath)
-	if err != nil {
-		return err
-	}
-	resolved, hit := nix.LoadCache(cacheDir, sum)
-	if !hit {
-		fmt.Println(warn("!") + " environment not built yet — run 'lagoon shell' to enable closure verification")
-		return nil
-	}
-
-	paths, err := closurePaths(resolved)
-	if err != nil {
-		return fmt.Errorf("getting closure: %w", err)
-	}
-
-	current := closureFingerprint(paths)
-	baselinePath := filepath.Join(cacheDir, "closure.fingerprint")
-
-	if checkReset {
-		if err := os.WriteFile(baselinePath, []byte(current), 0644); err != nil {
-			return fmt.Errorf("saving baseline: %w", err)
-		}
-		fmt.Printf("%s baseline reset — %d paths, fingerprint: %s…\n", ok("✓"), len(paths), current[:16])
-		return nil
-	}
-
-	stored, err := os.ReadFile(baselinePath)
-	if err != nil {
-		// first run — set baseline automatically
-		if err := os.WriteFile(baselinePath, []byte(current), 0644); err != nil {
-			return fmt.Errorf("saving baseline: %w", err)
-		}
-		fmt.Printf("%s baseline set — %d paths, fingerprint: %s…\n", ok("✓"), len(paths), current[:16])
-		fmt.Println("  run 'lagoon check' again to verify against this baseline")
-		return nil
-	}
-
-	if strings.TrimSpace(string(stored)) == current {
-		fmt.Printf("%s verified — %d paths, fingerprint: %s… matches baseline\n", ok("✓"), len(paths), current[:16])
-		return nil
-	}
-
-	fmt.Println(fail("✗") + " environment has changed since baseline was set")
-	fmt.Printf("  baseline:  %s…\n", strings.TrimSpace(string(stored))[:16])
-	fmt.Printf("  current:   %s…\n", current[:16])
-	fmt.Println("  run 'lagoon check --reset' to update the baseline")
-	return fmt.Errorf("verification failed")
+	return nil
 }

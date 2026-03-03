@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/imraghavojha/lagoon/internal/config"
 	"github.com/imraghavojha/lagoon/internal/nix"
 	"github.com/imraghavojha/lagoon/internal/preflight"
@@ -80,26 +79,12 @@ func runUp(cmd *cobra.Command, args []string) error {
 		if runtime.GOARCH == "arm64" {
 			fmt.Println(warn("!") + " arm: first run may take 10-60 min to compile packages")
 		}
-		progressCh := make(chan string, 50)
-		resultCh := make(chan struct {
-			env *nix.ResolvedEnv
-			err error
-		}, 1)
-		go func() {
-			env, err := nix.Resolve(shellNixPath, progressCh)
-			close(progressCh)
-			resultCh <- struct {
-				env *nix.ResolvedEnv
-				err error
-			}{env, err}
-		}()
-		tea.NewProgram(newBuildModel(progressCh), tea.WithAltScreen()).Run()
-		r := <-resultCh
-		if r.err != nil {
-			fmt.Fprintln(os.Stderr, r.err.Error())
+		env, err := resolveWithProgress(shellNixPath)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
-		resolved = r.env
+		resolved = env
 		_ = nix.SaveCache(cacheDir, resolved, sum)
 	}
 	nix.CreateGCRoots(cacheDir, resolved)
