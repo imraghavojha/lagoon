@@ -73,12 +73,7 @@ func runPs(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	base := os.Getenv("XDG_CACHE_HOME")
-	if base == "" {
-		home, _ := os.UserHomeDir()
-		base = filepath.Join(home, ".cache")
-	}
-	lagoonCache := filepath.Join(base, "lagoon")
+	lagoonCache := lagoonCacheBase()
 
 	entries, err := filepath.Glob(filepath.Join(lagoonCache, "*/pid.json"))
 	if err != nil || len(entries) == 0 {

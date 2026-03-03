@@ -1,11 +1,9 @@
 package cmd
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/imraghavojha/lagoon/internal/nix"
@@ -22,14 +20,6 @@ func closurePaths(resolved *nix.ResolvedEnv) ([]string, error) {
 		return nil, err
 	}
 	return strings.Fields(string(out)), nil
-}
-
-// closureFingerprint returns a hex sha256 of the sorted path list.
-func closureFingerprint(paths []string) string {
-	sorted := append([]string{}, paths...)
-	sort.Strings(sorted)
-	h := sha256.Sum256([]byte(strings.Join(sorted, "\n")))
-	return fmt.Sprintf("%x", h[:])
 }
 
 // envStorePaths extracts the top-level nix store paths from the environment PATH.

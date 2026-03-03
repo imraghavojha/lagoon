@@ -73,18 +73,6 @@ func Build(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd, memory st
 	return exec.Command(bwrap, bwrapArgs...), nil
 }
 
-// Start launches bwrap as a child process (for watch mode).
-// unlike Enter, the current process is not replaced — the caller manages the subprocess.
-func Start(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd, memory string, extraEnvs []string) (*exec.Cmd, error) {
-	c, err := Build(cfg, env, projectPath, cmd, memory, extraEnvs)
-	if err != nil {
-		return nil, err
-	}
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
-	return c, c.Start()
-}
-
 // buildArgs constructs the full bwrap argument list.
 // order matters here — bwrap processes flags left to right.
 func buildArgs(cfg *config.Config, env *nix.ResolvedEnv, projectPath, cmd string, extraEnvs []string) []string {

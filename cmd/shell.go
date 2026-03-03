@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/imraghavojha/lagoon/internal/config"
 	"github.com/imraghavojha/lagoon/internal/nix"
 	"github.com/imraghavojha/lagoon/internal/preflight"
@@ -96,26 +95,12 @@ func runShell(cmd *cobra.Command, args []string) error {
 		}
 
 		// run nix-shell with a bubbletea spinner showing live progress
-		progressCh := make(chan string, 50)
-		resultCh := make(chan struct {
-			env *nix.ResolvedEnv
-			err error
-		}, 1)
-		go func() {
-			env, err := nix.Resolve(shellNixPath, progressCh)
-			close(progressCh)
-			resultCh <- struct {
-				env *nix.ResolvedEnv
-				err error
-			}{env, err}
-		}()
-		tea.NewProgram(newBuildModel(progressCh), tea.WithAltScreen()).Run()
-		r := <-resultCh
-		if r.err != nil {
-			fmt.Fprintln(os.Stderr, r.err.Error())
+		env, err := resolveWithProgress(shellNixPath)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
-		resolved = r.env
+		resolved = env
 		_ = nix.SaveCache(cacheDir, resolved, sum)
 	} else {
 		fmt.Println(ok("✓") + " environment ready")
@@ -148,18 +133,21 @@ func runShell(cmd *cobra.Command, args []string) error {
 	return sandbox.Enter(cfg, resolved, absPath, cmdFlag, memFlag, envFlags)
 }
 
-// projectCacheDir returns ~/.cache/lagoon/<8-char hash of project path>
+// projectCacheDir returns the lagoon cache dir for a specific project path.
 func projectCacheDir(absPath string) string {
 	h := sha256.Sum256([]byte(absPath))
-	id := fmt.Sprintf("%x", h[:4])
-	base := os.Getenv("XDG_CACHE_HOME")
-	if base == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, warn("!")+" could not determine home dir — using temp dir for cache (lost on reboot)")
-			home = os.TempDir()
-		}
-		base = filepath.Join(home, ".cache")
+	return filepath.Join(lagoonCacheBase(), fmt.Sprintf("%x", h[:4]))
+}
+
+// lagoonCacheBase returns the top-level lagoon cache directory.
+// XDG_CACHE_HOME is checked first so it works on non-Linux platforms too.
+func lagoonCacheBase() string {
+	if xdg := os.Getenv("XDG_CACHE_HOME"); xdg != "" {
+		return filepath.Join(xdg, "lagoon")
 	}
-	return filepath.Join(base, "lagoon", id)
+	base, err := os.UserCacheDir()
+	if err != nil {
+		base = os.TempDir()
+	}
+	return filepath.Join(base, "lagoon")
 }
