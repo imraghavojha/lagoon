@@ -222,6 +222,7 @@ type serviceView struct {
 	Start  time.Time
 	Logs   []string
 	Color  string
+	Ports  []string
 }
 
 type upModel struct {
@@ -246,7 +247,7 @@ func newUpModel(names []string, commands map[string]string, runners []*runningSe
 		if r.cmd.Process != nil {
 			pid = r.cmd.Process.Pid
 		}
-		m.svcs[r.name] = &serviceView{Name: r.name, Cmd: commands[r.name], PID: pid, Status: "running", Start: r.start, Color: svcColors[i%len(svcColors)]}
+		m.svcs[r.name] = &serviceView{Name: r.name, Cmd: commands[r.name], PID: pid, Status: "running", Start: r.start, Color: svcColors[i%len(svcColors)], Ports: inferPorts(commands[r.name])}
 	}
 	return m
 }
@@ -324,7 +325,7 @@ func (m upModel) View() string {
 		if svc.PID > 0 && runtime.GOOS == "linux" {
 			mem = readProcessMem(svc.PID)
 		}
-		fmt.Fprintf(&b, "  %s %s  pid:%d  mem:%s  up:%s\n", statusStyle.Render("●"), nameStyle.Render(svc.Name), svc.PID, mem, time.Since(svc.Start).Round(time.Second))
+		fmt.Fprintf(&b, "  %s %s  pid:%d  ports:%s  mem:%s  up:%s\n", statusStyle.Render("●"), nameStyle.Render(svc.Name), svc.PID, portsLabel(svc.Ports), mem, time.Since(svc.Start).Round(time.Second))
 		fmt.Fprintf(&b, "     %s\n", ui.Dim.Render(svc.Cmd))
 	}
 	b.WriteString("\n" + ui.Title.Render("Logs") + "\n")

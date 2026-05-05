@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -27,6 +28,7 @@ type sandboxPID struct {
 	Kind     string   `json:"kind,omitempty"`
 	Name     string   `json:"name,omitempty"`
 	Command  string   `json:"command,omitempty"`
+	Ports    []string `json:"ports,omitempty"`
 }
 
 // writePIDFile records the current process's PID and project metadata.
@@ -50,6 +52,7 @@ func writeServicePIDFile(cacheDir, project string, cfg *config.Config, name, com
 		Kind:     "service",
 		Name:     name,
 		Command:  command,
+		Ports:    inferPorts(command),
 	})
 }
 
@@ -72,10 +75,16 @@ func safePIDName(name string) string {
 	return b.String()
 }
 
+var psAllProjects bool
+
 var psCmd = &cobra.Command{
 	Use:   "ps",
 	Short: "show the Lagoon status dashboard",
 	RunE:  runPs,
+}
+
+func init() {
+	psCmd.Flags().BoolVar(&psAllProjects, "all", false, "show running Lagoon processes from all projects")
 }
 
 func runPs(cmd *cobra.Command, args []string) error {
@@ -88,12 +97,12 @@ func runPs(cmd *cobra.Command, args []string) error {
 		status = project.Inspect(cfg, absPath, lagoonCacheBase())
 	}
 
-	entries := runningEntries(lagoonCacheBase())
-	fmt.Println(renderStatusDashboard(cfg, status, machine, entries))
+	entries := runningEntries(lagoonCacheBase(), absPath, psAllProjects)
+	fmt.Println(renderStatusDashboard(cfg, status, machine, entries, psAllProjects))
 	return nil
 }
 
-func renderStatusDashboard(cfg *config.Config, status project.Status, machine hardware.Machine, entries []sandboxPID) string {
+func renderStatusDashboard(cfg *config.Config, status project.Status, machine hardware.Machine, entries []sandboxPID, allProjects bool) string {
 	if cfg == nil {
 		return ui.Card("Lagoon ps",
 			ui.Bullet(ui.Hot.Render("!"), "no lagoon.toml found"),
@@ -133,8 +142,19 @@ func renderStatusDashboard(cfg *config.Config, status project.Status, machine ha
 	if !status.CacheReady {
 		lines = append(lines, ui.Bullet(ui.Hot.Render("!"), "cold cache — first lagoon shell/up will resolve packages"))
 	}
+	if len(cfg.Up) > 0 {
+		lines = append(lines, "", ui.Title.Render("Configured services"))
+		for _, name := range sortedServiceNames(cfg.Up) {
+			command := cfg.Up[name]
+			lines = append(lines, fmt.Sprintf("  %s %-10s ports:%-10s %s", ui.Dim.Render("◌"), name, portsLabel(inferPorts(command)), ui.Dim.Render(command)))
+		}
+	}
 	if len(entries) == 0 {
-		lines = append(lines, ui.Bullet(ui.Dim.Render("•"), "nothing running right now"))
+		scope := "this project"
+		if allProjects {
+			scope = "any project"
+		}
+		lines = append(lines, ui.Bullet(ui.Dim.Render("•"), "nothing running for "+scope))
 	} else {
 		lines = append(lines, "", ui.Title.Render("Running"))
 		for _, e := range entries {
@@ -151,7 +171,15 @@ func renderStatusDashboard(cfg *config.Config, status project.Status, machine ha
 			if runtime.GOOS == "linux" {
 				mem = readProcessMem(e.PID)
 			}
-			lines = append(lines, fmt.Sprintf("  %s %-10s pid:%-6d mem:%-8s up:%s", ui.OK.Render("●"), name, e.PID, mem, uptime))
+			ports := e.Ports
+			if len(ports) == 0 && e.Command != "" {
+				ports = inferPorts(e.Command)
+			}
+			projectLabel := ""
+			if allProjects {
+				projectLabel = "  " + ui.Dim.Render(project.ShortPath(e.Project))
+			}
+			lines = append(lines, fmt.Sprintf("  %s %-10s pid:%-6d ports:%-10s mem:%-8s up:%s%s", ui.OK.Render("●"), name, e.PID, portsLabel(ports), mem, uptime, projectLabel))
 			if e.Command != "" {
 				lines = append(lines, "     "+ui.Dim.Render(e.Command))
 			}
@@ -160,7 +188,7 @@ func renderStatusDashboard(cfg *config.Config, status project.Status, machine ha
 	return ui.Card("Lagoon ps", lines...)
 }
 
-func runningEntries(cacheBase string) []sandboxPID {
+func runningEntries(cacheBase, currentProject string, allProjects bool) []sandboxPID {
 	if runtime.GOOS != "linux" {
 		return nil
 	}
@@ -183,6 +211,9 @@ func runningEntries(cacheBase string) []sandboxPID {
 			continue
 		}
 		if !isProcessAlive(info.PID) {
+			continue
+		}
+		if !includeEntryForProject(info, currentProject, allProjects) {
 			continue
 		}
 		if info.Kind == "" {
@@ -216,4 +247,17 @@ func readProcessMem(pid int) string {
 		}
 	}
 	return "?"
+}
+
+func sortedServiceNames(services map[string]string) []string {
+	names := make([]string, 0, len(services))
+	for name := range services {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func includeEntryForProject(info sandboxPID, currentProject string, allProjects bool) bool {
+	return allProjects || info.Project == currentProject
 }
