@@ -16,15 +16,18 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "lagoon",
-	Short: "reproducible sandboxed shell environments using nix + bwrap",
-	Long: `lagoon gives you a clean, isolated shell with exactly the tools you asked for.
+	Short: "beautiful Linux dev environments and tiny runtimes without Docker overhead",
+	Long: `Lagoon is a Linux CLI for reproducible dev shells, small local service
+stacks, offline portable runtimes, and Docker export when you need it.
 
-no docker. no root. no daemons. one config file, one command.
-
-run 'lagoon init' to set up a new environment.
-run 'lagoon shell' to enter it.
-run 'lagoon up' to start services accessible at localhost.
-run 'lagoon docker' to export the environment as a Docker image.`,
+Core flow:
+  lagoon init             hardware-aware wizard and config preview
+  lagoon shell            enter the reproducible dev workspace
+  lagoon up               run services with a live dashboard
+  lagoon ps               show machine/cache/process status
+  lagoon save runtime.nar save for offline/lab/field machines
+  lagoon load runtime.nar load an offline runtime
+  lagoon docker image.tar export to Docker ecosystems`,
 }
 
 func Execute() {

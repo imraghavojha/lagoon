@@ -1,114 +1,168 @@
 # Lagoon
 
-Reproducible sandboxed shell environments. No Docker. No root. No daemons.
+Lagoon is a beautiful Linux CLI for reproducible dev environments and small local runtimes on low-end hardware.
 
-You describe the tools you need. Anyone on any matching Linux machine gets an identical shell with exactly those tools — same versions, guaranteed, every time.
+It gives you the parts of Docker developers usually want locally — repeatable shells, small service stacks, offline portability, and an escape hatch to Docker — without a daemon or Kubernetes-shaped surface area.
 
-```
-lagoon init     # search and pick packages
-lagoon shell    # enter the sandbox
-lagoon clean    # wipe the cache
-lagoon export > myenv.nar   # snapshot for offline use
-lagoon import myenv.nar     # restore on air-gapped machine
-```
+## Honest promise
 
----
+- Faster/lighter for shells and small local services
+- Reproducible across machines through a pinned `lagoon.toml`
+- Portable offline with `lagoon save` / `lagoon load`
+- Good for normal dev work first, tiny AI tooling second
+- Use Lagoon locally; export Docker when you need Docker ecosystems
 
-## How it works
+## Best use cases
 
-Lagoon writes a `lagoon.toml` with your packages and a pinned nixpkgs commit. You commit that file. Anyone who runs `lagoon shell` gets the exact same environment — same binary, same version, same nix store path.
+- Spin up the same dev environment on an old laptop, Raspberry Pi, or mini PC
+- Run a small local service stack without Docker overhead
+- Package tiny AI tools like `llama.cpp`, `whisper.cpp`, or agent scripts
+- Move a runtime to lab/offline/field machines with save/load
+- Export to Docker when a downstream system expects an image tar
 
-bwrap creates the sandbox: your project directory is mounted at `/workspace`, the nix store is read-only, everything else is empty. Network is off unless you asked for it. When you exit, nothing persists.
+## v1 scope
 
----
+Lagoon v1 is intentionally narrow:
+
+- Linux-only
+- Single-machine
+- Local runtime + portability tool
+- Beautiful CLI around reproducible environments
+
+Lagoon v1 is not cloud deploy, Kubernetes, a model download manager, multi-node orchestration, or perfect support for every distro edge case.
 
 ## Install
 
-**Requirements:** Linux (arm64 or amd64), bubblewrap, nix
+**Requirements:** Linux (arm64 or amd64), bubblewrap, Nix, user namespaces enabled.
 
 ```bash
-# Install bubblewrap and nix if you don't have them
 sudo apt install bubblewrap
-sh <(curl -L https://nixos.org/nix/install) --no-daemon && source ~/.nix-profile/etc/profile.d/nix.sh
+sh <(curl -L https://nixos.org/nix/install) --no-daemon
+source ~/.nix-profile/etc/profile.d/nix.sh
 
-# Install lagoon
 curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh | bash
 ```
 
----
-
-## Usage
+## Core flow
 
 ```bash
-# In your project directory
-lagoon init        # interactive setup — search packages live, commit the result
-lagoon shell       # enter the sandbox (first run downloads packages)
-lagoon shell -m 512m   # limit memory to 512 MiB (uses systemd-run)
-lagoon clean       # remove cached environment for this project
-lagoon status      # show whether the environment is cached
-lagoon export > myenv.nar   # export full nix closure for offline transfer
-lagoon import myenv.nar     # import on an air-gapped machine
+lagoon init             # hardware-aware wizard: intent, preset, preview
+lagoon shell            # main dev action: enter reproducible sandbox
+lagoon up               # run configured services with a live dashboard
+lagoon ps               # status dashboard: machine, cache, processes
+lagoon save runtime.nar # save runtime for offline machines
+lagoon load runtime.nar # load runtime on another machine
+lagoon docker image.tar # export Docker image tar when needed
 ```
+
+### `lagoon init`
+
+Detects RAM, architecture, core count, and disk space. Lagoon uses this to suggest:
+
+- Machine class: Pi-class, Laptop-class, or Mini-PC
+- Default memory cap
+- First-run warnings
+- Which presets are safe
+- Whether services are a comfortable default
+
+Detection guides defaults; it does not force behavior.
+
+The wizard asks for an intent:
+
+- Dev Workspace
+- Service Stack
+- Portable Runtime
+
+Then it offers curated presets:
+
+- Python
+- Node
+- Go
+- llama.cpp
+- whisper.cpp
+- Custom
+
+Before writing, Lagoon previews the final config.
+
+### `lagoon shell`
+
+Enters the sandbox described by `lagoon.toml`. Warm starts skip Nix resolution and feel instant when the environment cache is valid.
 
 Inside the sandbox:
-- Your project is at `/workspace` and you start there
-- `HOME` is `/home` (ephemeral tmpfs — nothing persists between sessions)
-- Only the packages you asked for are on `PATH`
-- Network is off by default (set `profile = "network"` in lagoon.toml to enable)
 
----
+- Your project is mounted at `/workspace`
+- `HOME` is ephemeral
+- Only configured packages are on `PATH`
+- Network follows the config profile
+- Memory cap follows `memory_cap` unless overridden with `--memory`
 
-## lagoon.toml
+### `lagoon up`
+
+Starts every command in `[up]` and shows a live dashboard with services, status, logs, memory, uptime, cache state, and networking. This is Lagoon's small-service-stack moment.
 
 ```toml
-packages = ["python311", "ffmpeg"]
+[up]
+app = "python3 -m http.server 8000"
+```
+
+Press `q` or `Ctrl+C` to stop services.
+
+### `lagoon ps`
+
+Shows the current project status:
+
+- Machine class
+- RAM / memory cap
+- Arch + cores
+- Cache warm/cold
+- Running services and shells
+- Uptime and memory usage on Linux
+- Network profile
+- Cache size
+
+### `lagoon save` / `lagoon load`
+
+Save an already-built environment, copy it to another Linux machine, and load it without internet:
+
+```bash
+lagoon shell             # build/cache once on a connected machine
+lagoon save runtime.nar
+# copy runtime.nar
+lagoon load runtime.nar
+lagoon shell             # uses imported store paths offline
+```
+
+Redirection still works:
+
+```bash
+lagoon save > runtime.nar
+```
+
+### `lagoon docker`
+
+Exports a Docker image tar without requiring the Docker daemon to build:
+
+```bash
+lagoon docker image.tar
+docker load < image.tar
+```
+
+## `lagoon.toml`
+
+```toml
+packages = ["python311", "uv"]
 nixpkgs_commit = "26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915"
 nixpkgs_sha256 = "1knl8dcr5ip70a2vbky3q844212crwrvybyw2nhfmgm1mvqry963"
-profile = "minimal"   # or "network"
+profile = "network"
+intent = "dev-workspace"
+preset = "python"
+memory_cap = "2g"
+
+[up]
+app = "python3 -m http.server 8000"
 ```
 
-`lagoon init` writes this for you. The nixpkgs pin is hardcoded in the binary — you never need to find or set it manually. `lagoon init` searches [search.nixos.org](https://search.nixos.org/packages) live as you type.
-
----
-
-## Memory limits
-
-On shared machines (e.g., a Raspberry Pi running multiple student environments), you can cap each sandbox's memory:
-
-```bash
-lagoon shell --memory 512m   # 512 MiB
-lagoon shell -m 2g            # 2 GiB
-lagoon run -m 256m python3 script.py
-```
-
-This wraps bwrap with `systemd-run --scope -p MemoryMax=...`. Requires systemd (standard on Ubuntu 22.04+).
-
----
-
-## Offline / air-gapped deployments
-
-Export an environment on a connected machine, then import on one with no internet:
-
-```bash
-# On a machine with internet:
-lagoon shell       # build and cache the environment first
-lagoon export > myenv.nar
-
-# Copy myenv.nar to the air-gapped machine, then:
-lagoon import myenv.nar
-lagoon shell       # works fully offline
-```
-
----
-
-## Target platforms
-
-Primary: arm64 Linux (Raspberry Pi 4/5, Ubuntu 22.04+)
-Secondary: x86-64 Linux
-
-First run on ARM may take 10–60 minutes if packages aren't in the binary cache. This only happens once.
-
----
+The Nix pin makes environments reproducible. Commit `lagoon.toml` so teammates and offline machines get the same runtime.
 
 ## Build from source
 
