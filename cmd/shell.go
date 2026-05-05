@@ -10,9 +10,11 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/imraghavojha/lagoon/internal/config"
+	"github.com/imraghavojha/lagoon/internal/hardware"
 	"github.com/imraghavojha/lagoon/internal/nix"
 	"github.com/imraghavojha/lagoon/internal/preflight"
 	"github.com/imraghavojha/lagoon/internal/sandbox"
+	"github.com/imraghavojha/lagoon/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -109,28 +111,44 @@ func runShell(cmd *cobra.Command, args []string) error {
 	// always register gc roots so nix-collect-garbage won't wipe the env on next warm start
 	nix.CreateGCRoots(cacheDir, resolved)
 
-	// banner so users know they're inside the sandbox
+	effectiveMem := memFlag
+	if effectiveMem == "" {
+		effectiveMem = cfg.MemoryCap
+	}
+	renderShellHeader(cfg, resolved, hit, effectiveMem)
+
+	// record pid so 'lagoon ps' can find this sandbox (same pid after syscall.Exec)
+	writePIDFile(cacheDir, absPath, cfg.Packages)
+
+	// replace this process with bwrap — no cleanup needed on exit
+	return sandbox.Enter(cfg, resolved, absPath, cmdFlag, effectiveMem, envFlags)
+}
+
+func renderShellHeader(cfg *config.Config, resolved *nix.ResolvedEnv, cacheHit bool, memory string) {
+	machine := hardware.Detect(".")
 	netStr := "off"
 	if cfg.Profile == "network" {
 		netStr = "on"
 	}
-	memStr := ""
-	if memFlag != "" {
-		memStr = " │ mem: " + strings.ToUpper(memFlag)
+	if memory == "" {
+		memory = "none"
 	}
-	fmt.Printf("\n%s │ %s │ /workspace │ network: %s%s\n",
-		ok("lagoon"), strings.Join(cfg.Packages, "  "), netStr, memStr)
-	// one-off commands don't have an interactive shell to exit from
+	cache := "cold→warm"
+	if cacheHit {
+		cache = "warm"
+	}
+	lines := []string{
+		ui.Chip("machine", string(machine.Class), ui.Accent) + "  " + ui.Chip("arch", machine.Arch, ui.Accent) + "  " + ui.Chip("cores", fmt.Sprint(machine.Cores), ui.Accent),
+		ui.Chip("network", netStr, ui.Good) + "  " + ui.Chip("memory cap", strings.ToUpper(memory), ui.Warn) + "  " + ui.Chip("cache", cache, ui.Good),
+		ui.Chip("packages", strings.Join(cfg.Packages, "  "), ui.Good),
+	}
+	if resolved != nil {
+		lines = append(lines, ui.Chip("env", resolved.EnvPath, ui.Accent))
+	}
 	if cmdFlag == "" {
-		fmt.Println("  type 'exit' to return to host shell")
+		lines = append(lines, ui.Bullet(ui.Dim.Render("•"), "type exit to return to host shell"))
 	}
-	fmt.Println()
-
-	// record pid so 'lagoon stats' can find this sandbox (same pid after syscall.Exec)
-	writePIDFile(cacheDir, absPath, cfg.Packages)
-
-	// replace this process with bwrap — no cleanup needed on exit
-	return sandbox.Enter(cfg, resolved, absPath, cmdFlag, memFlag, envFlags)
+	fmt.Println("\n" + ui.Card("Lagoon shell", lines...) + "\n")
 }
 
 // projectCacheDir returns the lagoon cache dir for a specific project path.

@@ -12,101 +12,185 @@ import (
 	"time"
 
 	"github.com/imraghavojha/lagoon/internal/config"
-	"github.com/imraghavojha/lagoon/internal/nix"
+	"github.com/imraghavojha/lagoon/internal/hardware"
+	"github.com/imraghavojha/lagoon/internal/project"
+	"github.com/imraghavojha/lagoon/internal/ui"
 	"github.com/spf13/cobra"
 )
 
-// sandboxPID is written to cacheDir/pid.json just before entering the sandbox.
+// sandboxPID is written to cacheDir/*.pid.json for shells and services.
 type sandboxPID struct {
 	PID      int      `json:"pid"`
 	Project  string   `json:"project"`
 	Packages []string `json:"packages"`
 	Started  string   `json:"started"`
+	Kind     string   `json:"kind,omitempty"`
+	Name     string   `json:"name,omitempty"`
+	Command  string   `json:"command,omitempty"`
 }
 
 // writePIDFile records the current process's PID and project metadata.
 func writePIDFile(cacheDir, project string, packages []string) {
-	info := sandboxPID{
+	writeProcessFile(filepath.Join(cacheDir, "pid.json"), sandboxPID{
 		PID:      os.Getpid(),
 		Project:  project,
 		Packages: packages,
 		Started:  time.Now().Format(time.RFC3339),
-	}
+		Kind:     "shell",
+		Name:     "shell",
+	})
+}
+
+func writeServicePIDFile(cacheDir, project string, cfg *config.Config, name, command string, pid int) {
+	writeProcessFile(filepath.Join(cacheDir, "service-"+safePIDName(name)+".pid.json"), sandboxPID{
+		PID:      pid,
+		Project:  project,
+		Packages: cfg.Packages,
+		Started:  time.Now().Format(time.RFC3339),
+		Kind:     "service",
+		Name:     name,
+		Command:  command,
+	})
+}
+
+func writeProcessFile(path string, info sandboxPID) {
 	b, _ := json.Marshal(info)
-	_ = os.WriteFile(filepath.Join(cacheDir, "pid.json"), b, 0644)
+	_ = os.WriteFile(path, b, 0644)
+}
+
+func safePIDName(name string) string {
+	name = strings.ToLower(name)
+	var b strings.Builder
+	for _, r := range name {
+		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-' || r == '_' {
+			b.WriteRune(r)
+		}
+	}
+	if b.Len() == 0 {
+		return "service"
+	}
+	return b.String()
 }
 
 var psCmd = &cobra.Command{
 	Use:   "ps",
-	Short: "show status and resource usage of sandboxes",
+	Short: "show the Lagoon status dashboard",
 	RunE:  runPs,
 }
 
 func runPs(cmd *cobra.Command, args []string) error {
-	// current project status (was status)
+	machine := hardware.Detect(".")
+	absPath, _ := filepath.Abs(".")
+	var cfg *config.Config
+	var status project.Status
 	cfg, err := config.Read(config.Filename)
-	if err != nil {
-		fmt.Println(warn("!") + " no lagoon.toml found — run 'lagoon init' first")
-	} else {
-		absPath, err := filepath.Abs(".")
-		if err != nil {
-			return err
-		}
-		cacheDir := projectCacheDir(absPath)
-		shellNixPath := filepath.Join(cacheDir, "shell.nix")
+	if err == nil {
+		status = project.Inspect(cfg, absPath, lagoonCacheBase())
+	}
 
-		fmt.Println("  packages: " + strings.Join(cfg.Packages, " "))
-		fmt.Println("  profile:  " + cfg.Profile)
+	entries := runningEntries(lagoonCacheBase())
+	fmt.Println(renderStatusDashboard(cfg, status, machine, entries))
+	return nil
+}
 
-		sum, _ := nix.GenerateShellNix(cfg, shellNixPath)
-		if _, hit := nix.LoadCache(cacheDir, sum); hit {
-			fmt.Println(ok("✓") + " cached — next 'lagoon shell' starts instantly")
+func renderStatusDashboard(cfg *config.Config, status project.Status, machine hardware.Machine, entries []sandboxPID) string {
+	if cfg == nil {
+		return ui.Card("Lagoon ps",
+			ui.Bullet(ui.Hot.Render("!"), "no lagoon.toml found"),
+			ui.Bullet(ui.Dim.Render("•"), "run lagoon init to create a reproducible environment"),
+			ui.Chip("machine", machine.Summary(), ui.Accent),
+		)
+	}
+
+	cacheColor := ui.Warn
+	cacheLabel := "cold"
+	if status.CacheReady {
+		cacheColor = ui.Good
+		cacheLabel = "warm"
+	}
+	network := cfg.Profile == "network"
+	memoryCap := cfg.MemoryCap
+	if memoryCap == "" {
+		memoryCap = "none"
+	}
+	serviceCount := 0
+	shellCount := 0
+	for _, e := range entries {
+		if e.Kind == "service" {
+			serviceCount++
 		} else {
-			fmt.Println(warn("!") + " not cached — run 'lagoon shell' to build")
+			shellCount++
 		}
-		fmt.Println()
 	}
 
-	// running sandbox processes (was stats — linux only)
+	lines := []string{
+		ui.Chip("machine", string(machine.Class), ui.Accent) + "  " + ui.Chip("ram", hardware.FormatMiB(machine.TotalRAMMiB), ui.Good) + "  " + ui.Chip("cap", memoryCap, ui.Warn),
+		ui.Chip("arch", machine.Arch, ui.Accent) + "  " + ui.Chip("cores", fmt.Sprint(machine.Cores), ui.Accent) + "  " + ui.Chip("network", onOff(network), ui.Good),
+		ui.Chip("cache", cacheLabel, cacheColor) + "  " + ui.Chip("env/cache size", project.FormatBytes(status.CacheSize), ui.Accent),
+		ui.Chip("configured services", fmt.Sprint(len(cfg.Up)), ui.Accent) + "  " + ui.Chip("running services", fmt.Sprint(serviceCount), ui.Good) + "  " + ui.Chip("shells", fmt.Sprint(shellCount), ui.Good),
+		ui.Chip("project", project.ShortPath(status.ProjectPath), ui.Accent),
+	}
+	if !status.CacheReady {
+		lines = append(lines, ui.Bullet(ui.Hot.Render("!"), "cold cache — first lagoon shell/up will resolve packages"))
+	}
+	if len(entries) == 0 {
+		lines = append(lines, ui.Bullet(ui.Dim.Render("•"), "nothing running right now"))
+	} else {
+		lines = append(lines, "", ui.Title.Render("Running"))
+		for _, e := range entries {
+			name := e.Name
+			if name == "" {
+				name = "shell"
+			}
+			started, _ := time.Parse(time.RFC3339, e.Started)
+			uptime := "?"
+			if !started.IsZero() {
+				uptime = time.Since(started).Round(time.Second).String()
+			}
+			mem := "?"
+			if runtime.GOOS == "linux" {
+				mem = readProcessMem(e.PID)
+			}
+			lines = append(lines, fmt.Sprintf("  %s %-10s pid:%-6d mem:%-8s up:%s", ui.OK.Render("●"), name, e.PID, mem, uptime))
+			if e.Command != "" {
+				lines = append(lines, "     "+ui.Dim.Render(e.Command))
+			}
+		}
+	}
+	return ui.Card("Lagoon ps", lines...)
+}
+
+func runningEntries(cacheBase string) []sandboxPID {
 	if runtime.GOOS != "linux" {
-		fmt.Println(warn("!") + " sandbox process info is only available on Linux (/proc required)")
 		return nil
 	}
-
-	lagoonCache := lagoonCacheBase()
-
-	entries, err := filepath.Glob(filepath.Join(lagoonCache, "*/pid.json"))
-	if err != nil || len(entries) == 0 {
-		fmt.Println("  no sandboxes running")
-		return nil
-	}
-
-	running := 0
-	for _, pidFile := range entries {
-		b, err := os.ReadFile(pidFile)
+	files, _ := filepath.Glob(filepath.Join(cacheBase, "*", "*.pid.json"))
+	legacy, _ := filepath.Glob(filepath.Join(cacheBase, "*", "pid.json"))
+	files = append(files, legacy...)
+	seen := map[string]bool{}
+	var entries []sandboxPID
+	for _, file := range files {
+		if seen[file] {
+			continue
+		}
+		seen[file] = true
+		b, err := os.ReadFile(file)
 		if err != nil {
 			continue
 		}
 		var info sandboxPID
-		if err := json.Unmarshal(b, &info); err != nil {
+		if err := json.Unmarshal(b, &info); err != nil || info.PID <= 0 {
 			continue
 		}
 		if !isProcessAlive(info.PID) {
 			continue
 		}
-		mem := readProcessMem(info.PID)
-		pkgs := strings.Join(info.Packages, " ")
-		fmt.Printf("  %s  pid %-6d  %-8s  %s\n", ok("●"), info.PID, mem, pkgs)
-		fmt.Printf("     %s\n", info.Project)
-		running++
+		if info.Kind == "" {
+			info.Kind = "shell"
+		}
+		entries = append(entries, info)
 	}
-
-	if running == 0 {
-		fmt.Println("  no sandboxes currently running")
-	} else {
-		fmt.Printf("\n  %d sandbox(es) running\n", running)
-	}
-	return nil
+	return entries
 }
 
 // isProcessAlive sends signal 0 to check if a process exists.
