@@ -21,6 +21,9 @@ type Config struct {
 	NixpkgsCommit string            `toml:"nixpkgs_commit"`
 	NixpkgsSHA256 string            `toml:"nixpkgs_sha256"`
 	Profile       string            `toml:"profile"`              // "minimal" or "network"
+	Intent        string            `toml:"intent,omitempty"`     // dev-workspace, service-stack, portable-runtime
+	Preset        string            `toml:"preset,omitempty"`     // curated preset id used by init
+	MemoryCap     string            `toml:"memory_cap,omitempty"` // suggested cap, e.g. 768m, 2g
 	OnEnter       string            `toml:"on_enter,omitempty"`   // command to run on sandbox entry
 	Up            map[string]string `toml:"up,omitempty"`         // service name → shell command
 }
@@ -37,6 +40,9 @@ func Read(path string) (*Config, error) {
 	}
 	if len(cfg.NixpkgsSHA256) != 52 {
 		return nil, fmt.Errorf("nixpkgs_sha256 must be a 52-char nix hash (got %d chars)", len(cfg.NixpkgsSHA256))
+	}
+	if cfg.Profile == "" {
+		cfg.Profile = "minimal"
 	}
 	return &cfg, nil
 }

@@ -23,15 +23,20 @@ type ResolvedEnv struct {
 	PATH     string
 }
 
-// GenerateShellNix writes shell.nix to outPath if the content changed.
-// returns the sha256 sum of the generated content for cache lookups.
-func GenerateShellNix(cfg *config.Config, outPath string) (string, error) {
+// RenderShellNix returns the generated shell.nix content and its cache sum
+// without touching the filesystem. Status views use this to stay read-only.
+func RenderShellNix(cfg *config.Config) (string, string) {
 	content := shellNixTemplate
 	content = strings.ReplaceAll(content, "{{COMMIT}}", cfg.NixpkgsCommit)
 	content = strings.ReplaceAll(content, "{{SHA256}}", cfg.NixpkgsSHA256)
 	content = strings.ReplaceAll(content, "{{PACKAGES}}", "    "+strings.Join(cfg.Packages, "\n    "))
+	return content, contentSum([]byte(content))
+}
 
-	sum := contentSum([]byte(content))
+// GenerateShellNix writes shell.nix to outPath if the content changed.
+// returns the sha256 sum of the generated content for cache lookups.
+func GenerateShellNix(cfg *config.Config, outPath string) (string, error) {
+	content, sum := RenderShellNix(cfg)
 
 	// skip the write if the file already has this exact content
 	if existing, err := os.ReadFile(outPath); err == nil && contentSum(existing) == sum {
