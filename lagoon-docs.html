@@ -4,366 +4,264 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>lagoon — Documentation</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Fraunces:ital,wght@0,300;0,700;1,300;1,700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f7f6f2;
-    --bg2: #edecea;
-    --fg: #111;
-    --fg2: #666;
+    --bg: #0e1016;
+    --bg-raise: #151820;
+    --border: #232733;
+    --fg: #d6dae3;
+    --fg-dim: #8b91a0;
+    --fg-faint: #565c6b;
     --accent: #2de08a;
-    --accent-dim: rgba(45,224,138,0.13);
-    --accent2: #0a3d2e;
-    --mono: 'DM Mono', monospace;
-    --sans: 'Cabinet Grotesk', sans-serif;
-    --serif: 'Fraunces', serif;
-    --card: #fff;
-    --border: rgba(0,0,0,0.09);
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
 
   body {
-    font-family: var(--sans);
+    font-family: var(--mono);
+    font-size: 14.5px;
     background: var(--bg);
     color: var(--fg);
-    line-height: 1.6;
-    overflow-x: hidden;
-    width: 100%;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
     -webkit-text-size-adjust: 100%;
   }
+
+  ::selection { background: var(--accent); color: var(--bg); }
+
+  a { color: var(--fg); text-decoration: underline; text-decoration-color: var(--fg-faint); text-underline-offset: 3px; }
+  a:hover { color: var(--accent); text-decoration-color: var(--accent); }
 
   /* NAV */
   nav {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 56px;
-    height: 62px;
-    width: 100%;
+    padding: 0 24px;
+    height: 58px;
     border-bottom: 1px solid var(--border);
-    background: rgba(247,246,242,0.92);
-    backdrop-filter: blur(12px);
+    background: rgba(14,16,22,0.92);
+    backdrop-filter: blur(10px);
     position: sticky;
     top: 0;
     z-index: 1000;
   }
   .logo {
-    font-family: var(--serif);
-    font-size: 1.65rem;
     font-weight: 700;
-    letter-spacing: -0.04em;
+    font-size: 16px;
     color: var(--fg);
     text-decoration: none;
     z-index: 1001;
   }
   .logo span { color: var(--accent); }
-  .nav-links { display: flex; align-items: center; gap: 28px; list-style: none; }
-  .nav-links li { margin-bottom: 0 !important; }
-  .nav-links a { font-size: 0.9rem; font-weight: 500; color: var(--fg2); text-decoration: none; transition: color 0.15s; }
-  .nav-links a:hover { color: var(--fg); }
-  .nav-links a.active { color: var(--fg); font-weight: 700; }
-  .nav-cta { background: var(--fg) !important; color: var(--bg) !important; padding: 8px 20px !important; border-radius: 100px !important; font-weight: 700 !important; text-decoration: none !important; white-space: nowrap; }
-
-  /* CODE COPY BUTTON */
-  .code-wrapper {
-    position: relative;
-    margin: 32px 0;
-  }
-  .code-wrapper .cmd, .code-wrapper .toml-block {
-    margin: 0;
-  }
-  .copy-btn {
-    position: absolute;
-    top: 14px;
-    right: 14px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
+  .nav-links { display: flex; align-items: center; gap: 22px; list-style: none; }
+  .nav-links a { font-size: 13px; color: var(--fg-dim); text-decoration: none; }
+  .nav-links a:hover, .nav-links a.active { color: var(--accent); }
+  .nav-cta {
+    border: 1px solid var(--border);
     border-radius: 6px;
-    color: #6c7086;
-    font-family: var(--mono);
-    font-size: 0.68rem;
-    padding: 5px 10px;
-    cursor: pointer;
-    transition: all 0.2s;
-    z-index: 10;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 600;
+    padding: 6px 14px;
+    color: var(--fg) !important;
   }
-  .copy-btn:hover {
-    background: rgba(255,255,255,0.1);
-    color: var(--accent);
-    border-color: var(--accent);
-  }
+  .nav-cta:hover { border-color: var(--accent); }
 
-  /* Mobile Menu Toggle */
   .menu-toggle {
     display: none;
     flex-direction: column;
     gap: 5px;
-    cursor: pointer;
     background: none;
-    border: none;
-    padding: 10px;
+    border: 0;
+    cursor: pointer;
+    padding: 6px;
     z-index: 1001;
   }
-  .menu-toggle span {
-    display: block;
-    width: 22px;
-    height: 2px;
-    background: var(--fg);
-    transition: 0.3s;
-  }
+  .menu-toggle span { width: 20px; height: 2px; background: var(--fg-dim); }
 
   /* LAYOUT */
   .container {
     display: grid;
-    grid-template-columns: 260px minmax(0, 1fr);
-    gap: 0;
-    min-height: calc(100vh - 62px);
-    max-width: 100%;
+    grid-template-columns: 230px 1fr;
+    max-width: 1100px;
+    margin: 0 auto;
+    gap: 40px;
+    padding: 0 24px;
   }
 
   /* SIDEBAR */
   .sidebar {
-    background: var(--bg);
-    border-right: 1px solid var(--border);
-    padding: 48px 24px;
-    height: calc(100vh - 62px);
     position: sticky;
-    top: 62px;
+    top: 58px;
+    align-self: start;
+    height: calc(100vh - 58px);
     overflow-y: auto;
-    z-index: 90;
+    padding: 32px 0 48px;
   }
   .sidebar-title {
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    font-weight: 800;
-    text-transform: uppercase;
+    font-size: 11px;
     letter-spacing: 0.1em;
-    color: var(--fg2);
-    margin: 32px 8px 12px;
+    text-transform: uppercase;
+    color: var(--fg-faint);
+    margin: 26px 0 8px;
   }
   .sidebar-title:first-child { margin-top: 0; }
   .sidebar-nav { list-style: none; }
   .sidebar-nav li a {
     display: block;
-    padding: 10px 14px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--fg2);
+    font-size: 13px;
+    color: var(--fg-dim);
     text-decoration: none;
-    border-radius: 10px;
-    transition: all 0.2s cubic-bezier(0.34, 1.2, 0.64, 1);
+    padding: 4px 10px;
+    border-left: 1px solid var(--border);
   }
-  .sidebar-nav li a:hover { background: var(--accent-dim); color: var(--fg); padding-left: 18px; }
-  .sidebar-nav li a.active {
-    background: var(--accent);
-    color: var(--accent2);
-    font-weight: 700;
-    box-shadow: 0 4px 12px rgba(45,224,138,0.25);
-  }
+  .sidebar-nav li a:hover { color: var(--fg); border-left-color: var(--fg-dim); }
+  .sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); }
 
-  /* MAIN CONTENT */
-  .main {
-    padding: 96px 80px 120px;
-    max-width: 1000px;
-    width: 100%;
-    min-width: 0;
-  }
+  /* MAIN */
+  .main { padding: 40px 0 96px; min-width: 0; }
 
-  h1 {
-    font-size: clamp(2.4rem, 4vw, 3.2rem);
-    font-weight: 900;
-    letter-spacing: -0.035em;
-    margin-bottom: 24px;
-    line-height: 1.1;
-    word-wrap: break-word;
-  }
+  .main section { margin-bottom: 72px; scroll-margin-top: 80px; }
+
   h2 {
-    font-size: clamp(1.8rem, 3vw, 2.2rem);
-    font-weight: 900;
-    letter-spacing: -0.03em;
-    margin-top: 80px;
-    margin-bottom: 24px;
-    padding-top: 40px;
-    border-top: 1px solid var(--border);
-    line-height: 1.1;
-    word-wrap: break-word;
-  }
-  h2:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
-  h3 {
-    font-size: 1.25rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    margin-top: 48px;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     margin-bottom: 16px;
-    word-wrap: break-word;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
   }
+  h3 { font-size: 15px; font-weight: 600; margin: 28px 0 10px; color: var(--fg); }
+  h4 { font-size: 13.5px; font-weight: 600; margin-bottom: 6px; }
 
-  p {
-    margin-bottom: 20px;
-    color: var(--fg);
-    font-size: 1.05rem;
-    line-height: 1.75;
-    word-wrap: break-word;
-  }
+  p { color: var(--fg-dim); margin-bottom: 12px; max-width: 70ch; }
+  p strong { color: var(--fg); }
+  ul, ol { color: var(--fg-dim); margin: 0 0 14px 22px; }
+  li { margin-bottom: 4px; }
+  li strong { color: var(--fg); }
 
   code {
-    font-family: var(--mono);
-    background: var(--bg2);
-    padding: 2px 7px;
-    border-radius: 5px;
-    font-size: 0.88em;
-    color: #d63384;
-    word-break: break-all;
+    background: var(--bg-raise);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.92em;
+    color: var(--fg);
   }
 
-  /* TERMINAL / CODE BLOCKS */
-  .cmd, .toml-block {
-    background: #0c0e14;
-    border-radius: 16px;
-    padding: 28px;
-    font-family: var(--mono);
-    font-size: 0.85rem;
-    line-height: 2;
-    margin: 32px 0;
-    border: 1px solid rgba(255,255,255,0.06);
-    box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+  .section-intro { font-size: 15px; color: var(--fg-dim); }
+
+  /* TERMINAL BLOCKS */
+  .cmd {
+    background: var(--bg-raise);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 12px 0 18px;
+    font-size: 13px;
+    line-height: 1.8;
     overflow-x: auto;
-    max-width: 100%;
     white-space: pre;
-    -webkit-overflow-scrolling: touch;
   }
-  .cmd { border-left: 4px solid var(--accent); color: #a6e3a1; }
-  .cmd .prompt { color: #6c7086; font-weight: 500; }
-  .cmd .output { color: #cdd6f4; display: block; margin-top: 4px; }
+  .prompt { color: var(--accent); }
+  .output { color: var(--fg-dim); }
 
-  .toml-key { color: #89b4fa; font-weight: 600; }
-  .toml-str { color: #a6e3a1; }
-  .toml-comment { color: #45475a; }
+  /* BOXES & GRIDS */
+  .box {
+    background: var(--bg-raise);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+  }
+  .box p { font-size: 13.5px; margin-bottom: 0; }
+  .box ul { margin-bottom: 0; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 16px 0; }
+  .grid-2 .box, .grid-3 .box { margin-bottom: 0; }
 
   .note {
-    background: linear-gradient(135deg, var(--accent-dim) 0%, rgba(45,224,138,0.08) 100%);
-    border-left: 4px solid var(--accent);
-    padding: 24px 28px;
-    border-radius: 12px;
-    margin: 32px 0;
-    font-size: 1rem;
-    line-height: 1.75;
-    word-wrap: break-word;
-  }
-  .note strong { color: var(--accent2); font-weight: 800; }
-
-  ul, ol { margin-left: 24px; margin-bottom: 24px; }
-  li { margin-bottom: 12px; line-height: 1.75; font-size: 1rem; word-wrap: break-word; }
-
-  .grid-2, .grid-3 {
-    display: grid;
-    gap: 24px;
-    margin: 40px 0;
-  }
-  .grid-2 { grid-template-columns: 1fr 1fr; }
-  .grid-3 { grid-template-columns: repeat(3, 1fr); }
-
-  .box {
-    background: #fff;
     border: 1px solid var(--border);
-    padding: 32px;
-    border-radius: 16px;
-    transition: all 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
-    min-width: 0;
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    background: var(--bg-raise);
+    padding: 12px 16px;
+    margin: 16px 0;
+    font-size: 13.5px;
+    color: var(--fg-dim);
   }
-  .box:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.06); border-color: rgba(0,0,0,0.12); }
-  .box h4 { font-weight: 800; font-size: 1.1rem; margin-bottom: 12px; letter-spacing: -0.02em; }
-  .box p { font-size: 0.95rem; margin-bottom: 0; line-height: 1.6; }
+  .note strong { color: var(--fg); }
 
-  .section-intro {
-    font-size: 1.2rem;
-    color: var(--fg2);
-    margin-bottom: 40px;
-    line-height: 1.7;
-    font-weight: 500;
+  /* TOML */
+  .toml-block {
+    background: var(--bg-raise);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin: 12px 0 18px;
+    font-size: 13px;
+    line-height: 1.9;
+    overflow-x: auto;
+    white-space: pre;
   }
+  .toml-key { color: #7fb4f5; }
+  .toml-str { color: var(--accent); }
+  .toml-comment { color: var(--fg-faint); }
 
-  /* FOOTER */
+  /* injected copy buttons on .cmd blocks */
+  .copy-btn {
+    display: inline-block;
+    margin: -10px 0 18px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--fg-faint);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 10px;
+    cursor: pointer;
+  }
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 14px 0; }
+  th, td { text-align: left; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--border); color: var(--fg-dim); vertical-align: top; }
+  th { color: var(--fg); font-weight: 600; }
+
   footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 36px 56px;
-    width: 100%;
-    background: var(--bg);
-    color: var(--fg2);
-    font-size: 0.85rem;
+    gap: 16px;
+    flex-wrap: wrap;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px 24px 48px;
     border-top: 1px solid var(--border);
+    font-size: 12.5px;
+    color: var(--fg-faint);
   }
-  footer a { color: var(--fg2); text-decoration: none; }
-  footer a:hover { color: var(--fg); }
-  .footer-links { display: flex; gap: 24px; }
+  footer a { color: var(--fg-faint); text-decoration: none; }
+  footer a:hover { color: var(--accent); }
+  .footer-links { display: flex; gap: 20px; }
 
-  @media (max-width: 1024px) {
-    nav { padding: 0 24px; }
+  @media (max-width: 860px) {
+    .container { grid-template-columns: 1fr; gap: 0; }
     .menu-toggle { display: flex; }
-
     .nav-links {
+      display: none;
       position: fixed;
-      top: 62px;
-      left: 0;
-      width: 100%;
-      height: 0;
-      background: var(--bg);
+      inset: 58px 0 auto 0;
       flex-direction: column;
-      gap: 0;
-      overflow: hidden;
-      transition: height 0.3s ease;
-      border-bottom: 0px solid var(--border);
-      z-index: 1000;
-    }
-    .nav-links.open {
-      height: auto;
-      padding: 20px 0;
-      border-bottom-width: 1px;
-    }
-    .nav-links li {
-      width: 100%;
-      text-align: center;
-    }
-    .nav-links a {
-      display: block;
-      padding: 15px;
-      font-size: 1.1rem;
-    }
-    .nav-cta {
-      margin: 10px 24px;
-      display: inline-block !important;
-    }
-
-    .container { grid-template-columns: minmax(0, 1fr); }
-    .sidebar {
-      position: relative;
-      height: auto;
-      top: 0;
-      border-right: none;
+      background: var(--bg-raise);
       border-bottom: 1px solid var(--border);
-      padding: 24px;
-      max-height: 300px;
-      width: 100%;
+      padding: 16px 24px 20px;
+      gap: 14px;
+      align-items: flex-start;
     }
-    .main { padding: 60px 24px; }
-    .grid-3, .grid-2 { grid-template-columns: 1fr; }
-  }
-
-  @media (max-width: 640px) {
-    .main { padding: 48px 20px; }
-    h1 { font-size: 2.2rem; }
-    h2 { font-size: 1.6rem; margin-top: 60px; }
-    .cmd, .toml-block { padding: 20px; font-size: 0.8rem; margin: 24px 0; }
-    footer { padding: 32px 24px; flex-direction: column; gap: 20px; text-align: center; }
-    .footer-links { gap: 16px; flex-wrap: wrap; justify-content: center; }
+    .nav-links.open { display: flex; }
+    .sidebar { display: none; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .main { padding-top: 28px; }
   }
 </style>
 </head>
@@ -626,7 +524,7 @@ lagoon version   print version and pinned nixpkgs commit</span></div>
       <div class="cmd"><span class="prompt">$</span> lagoon init</div>
 
       <ul>
-        <li><strong>Live Search:</strong> Queries <a href="https://search.nixos.org/packages" style="color:var(--accent2); font-weight:600;">search.nixos.org</a> as you type with debounced results.</li>
+        <li><strong>Live Search:</strong> Queries <a href="https://search.nixos.org/packages" style="color:var(--accent);">search.nixos.org</a> as you type with debounced results.</li>
         <li><strong>Interactive Selection:</strong> Use arrow keys to pick packages and toggle network access.</li>
         <li><strong>Preview &amp; Confirm:</strong> Shows exactly what will be written before saving.</li>
         <li><strong>Overwrite guard:</strong> If <code>lagoon.toml</code> exists, lagoon asks before overwriting.</li>
@@ -947,7 +845,7 @@ nixpkgs commit 26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915</span></div>
 
       <h3>Search for packages</h3>
       <p>
-        Visit <a href="https://search.nixos.org/packages" style="color:var(--accent2); font-weight:600;">search.nixos.org/packages</a> and search by name.
+        Visit <a href="https://search.nixos.org/packages" style="color:var(--accent);">search.nixos.org/packages</a> and search by name.
         lagoon's <code>init</code> TUI also searches it live as you type.
       </p>
 
@@ -1079,9 +977,9 @@ nixpkgs commit 26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915</span></div>
 
     </section>
 
-    <section style="margin-top: 100px; padding-top: 48px; border-top: 1px solid rgba(0,0,0,0.08); color: var(--fg2); font-size: 0.95rem; line-height: 1.8;">
+    <section style="margin-top: 80px; padding-top: 32px; border-top: 1px solid var(--border); color: var(--fg-dim); font-size: 13.5px;">
       <p>
-        Have a question? Open an issue on <a href="https://github.com/imraghavojha/lagoon" style="color:var(--accent2); font-weight:700; text-decoration:none;">GitHub</a>.
+        Have a question? Open an issue on <a href="https://github.com/imraghavojha/lagoon" style="color:var(--accent);">GitHub</a>.
       </p>
     </section>
 
@@ -1091,8 +989,8 @@ nixpkgs commit 26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915</span></div>
 
 <!-- FOOTER -->
 <footer>
-  <a href="index.html" class="logo" style="font-size:1.2rem; font-family:var(--serif);">lagoon<span style="color:var(--accent)">_</span></a>
-  <span style="color:var(--fg2); font-size:0.82rem;">no docker. no root. no daemons.</span>
+  <a href="index.html" class="logo" style="font-size:14px;">lagoon<span style="color:var(--accent)">_</span></a>
+  <span style="color:var(--fg-faint); font-size:12.5px;">no docker. no root. no daemons.</span>
   <div class="footer-links">
     <a href="https://github.com/imraghavojha/lagoon">GitHub</a>
     <a href="lagoon-docs.html" class="active">Docs</a>
