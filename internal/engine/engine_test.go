@@ -49,8 +49,8 @@ func TestShellArgs(t *testing.T) {
 			t.Errorf("ShellArgs missing %q in %q", want, joined)
 		}
 	}
-	if args[len(args)-1] != "bash" {
-		t.Errorf("interactive shell should end with bash, got %q", args[len(args)-1])
+	if args[len(args)-1] != "--norc" || args[len(args)-2] != "bash" {
+		t.Errorf("interactive shell should run bash --norc directly so env PS1 survives, got %v", args[len(args)-2:])
 	}
 
 	// one-off command goes through sh -c

@@ -166,13 +166,21 @@ func ShellArgs(e *Engine, cfg *config.Config, projectPath, cmd, memory string, e
 	}
 	args = append(args, image)
 
+	// interactive bash runs --norc so the PS1 we inject isn't overridden by
+	// the image's /etc/bash.bashrc — the [lagoon] prompt matches Linux.
+	// no `bash -c` wrapper for the plain case: non-interactive bash unsets
+	// PS1, which would kill the prompt before the inner shell starts.
 	switch {
 	case cmd != "" && cfg.OnEnter != "":
 		args = append(args, sh, "-c", cfg.OnEnter+" && "+cmd)
 	case cmd != "":
 		args = append(args, sh, "-c", cmd)
+	case cfg.OnEnter != "" && sh == "bash":
+		args = append(args, sh, "-c", cfg.OnEnter+`; export PS1='[lagoon] \w $ '; exec bash --norc`)
 	case cfg.OnEnter != "":
-		args = append(args, sh, "-c", cfg.OnEnter+"; exec "+sh)
+		args = append(args, sh, "-c", cfg.OnEnter+"; PS1='[lagoon] $ ' exec "+sh)
+	case sh == "bash":
+		args = append(args, "bash", "--norc")
 	default:
 		args = append(args, sh)
 	}

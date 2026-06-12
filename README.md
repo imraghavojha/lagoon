@@ -1,45 +1,49 @@
-# Lagoon
+<div align="center">
 
-Lagoon is a beautiful CLI for reproducible dev environments and small local runtimes — on Linux **and** macOS.
+# lagoon
 
-It gives you the parts of Docker developers usually want locally — repeatable shells, small service stacks, offline portability, and an escape hatch to Docker — with the lightest runtime each platform offers:
+Fast, reproducible dev environments for Linux and macOS.
 
-- **Linux** — Nix + bubblewrap. No daemon, no images, no Kubernetes-shaped surface area.
-- **macOS** — [apple/container](https://github.com/apple/container): each environment boots in its own lightweight VM in well under a second on Apple Silicon. Docker is used automatically as a fallback engine.
+[![Release](https://img.shields.io/github/v/release/imraghavojha/lagoon?color=2de08a&label=release)](https://github.com/imraghavojha/lagoon/releases)
+[![Go](https://img.shields.io/badge/go-1.24+-00ADD8?logo=go&logoColor=white)](go.mod)
+[![Platforms](https://img.shields.io/badge/platforms-linux%20%C2%B7%20macos-blue)](#installation)
 
-## Honest promise
+<img src="assets/shell.gif" alt="lagoon shell entering a sandboxed environment" width="800">
 
-- Faster/lighter than Docker for shells and small local services
-- Reproducible across machines through a committed `lagoon.toml`
-- Portable offline with `lagoon save` / `lagoon load`
-- Good for normal dev work first, tiny AI tooling second
-- Use Lagoon locally; export Docker when you need Docker ecosystems
+</div>
 
-## Best use cases
+lagoon creates isolated project environments from a single committed config file. On Linux it builds them from pinned [Nix](https://nixos.org) packages and sandboxes them with [bubblewrap](https://github.com/containers/bubblewrap) — no daemon, no root, no images. On macOS it boots each environment in its own lightweight VM through [apple/container](https://github.com/apple/container), with warm starts around one second on Apple Silicon. Docker is used automatically as a fallback engine.
 
-- Replace `docker compose up` for basic web projects on your Mac or laptop
-- Spin up the same dev environment on an old laptop, Raspberry Pi, or mini PC
-- Run a small local service stack without Docker Desktop overhead
-- Package tiny AI tools like `llama.cpp`, `whisper.cpp`, or agent scripts
-- Move a runtime to lab/offline/field machines with save/load
+Commit `lagoon.toml` and every machine — your laptop, a teammate's Mac, a Raspberry Pi — gets the same environment.
 
-## Install
+## Features
 
-### macOS (Apple Silicon, macOS 15+)
+- **`lagoon shell`** — drop into an isolated shell with your project mounted at `/workspace`
+- **`lagoon up`** — run the services in your config with a live dashboard: status, ports, logs
+- **`lagoon save` / `load`** — move environments to offline machines as a single file
+- **`lagoon docker`** — export a Docker-compatible image tar, no daemon needed to build it
+- **Pinned dependencies** — a locked nixpkgs commit on Linux, explicit images on macOS
+- **Memory caps** — `-m 512m` enforced by systemd on Linux, by the VM on macOS
+- **No daemon on Linux** — environments are processes, not containers
 
-```bash
-brew install container && container system start   # apple/container engine
-git clone https://github.com/imraghavojha/lagoon && cd lagoon
-go build -o lagoon . && mv lagoon /usr/local/bin/  # or anywhere on PATH
+## Installation
+
+### macOS
+
+Requires Apple Silicon and macOS 15 or later.
+
+```sh
+brew install container && container system start   # container engine
+curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh | bash
 ```
 
-No apple/container? Lagoon automatically falls back to Docker if it's installed.
+If apple/container is not installed, lagoon falls back to Docker Desktop automatically.
 
-### Linux (arm64 or amd64)
+### Linux
 
-**Requirements:** bubblewrap, Nix, user namespaces enabled.
+Requires bubblewrap, Nix, and unprivileged user namespaces (arm64 or amd64).
 
-```bash
+```sh
 sudo apt install bubblewrap
 sh <(curl -L https://nixos.org/nix/install) --no-daemon
 source ~/.nix-profile/etc/profile.d/nix.sh
@@ -47,102 +51,111 @@ source ~/.nix-profile/etc/profile.d/nix.sh
 curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh | bash
 ```
 
-## Core flow
+### From source
 
-```bash
-lagoon init             # hardware-aware wizard: intent, preset, preview
-lagoon shell            # main dev action: enter reproducible sandbox
-lagoon run <cmd>        # one-off command in the sandbox
-lagoon up               # run configured services with a live dashboard
-lagoon ps               # status dashboard: machine, cache, processes
-lagoon save runtime.nar # save runtime for offline machines
-lagoon load runtime.nar # load runtime on another machine
-lagoon docker image.tar # export a Docker image tar when needed
+```sh
+git clone https://github.com/imraghavojha/lagoon && cd lagoon
+go build -o lagoon .
 ```
 
-The same `lagoon.toml` works on both platforms: Linux resolves it through pinned Nix packages, macOS maps it to a small official container image (overridable with `image = "..."`).
+## Quick start
 
-### `lagoon init`
+Initialize a project. The wizard detects your hardware, offers presets (Python, Node, Go, llama.cpp, whisper.cpp), and previews the config before writing anything:
 
-Detects RAM, architecture, core count, disk space, and (on macOS) the container engine. Lagoon uses this to suggest:
+```sh
+lagoon init
+```
 
-- Machine class: Pi-class, Laptop-class, Mini-PC, or Mac
-- Default memory cap
-- First-run warnings
-- Which presets are safe
+<div align="center"><img src="assets/init.gif" alt="lagoon init wizard" width="800"></div>
 
-Detection guides defaults; it does not force behavior. The wizard asks for an intent (Dev Workspace, Service Stack, Portable Runtime), offers curated presets (Python, Node, Go, llama.cpp, whisper.cpp, Custom), and previews the final config before writing.
+Enter the environment, or run a one-off command:
 
-### `lagoon shell`
+```sh
+lagoon shell
+lagoon run pytest -x
+```
 
-Enters the sandbox described by `lagoon.toml`. Warm starts feel instant — on macOS a fresh VM boots in about a second; on Linux the cached Nix environment skips resolution entirely.
-
-Inside the sandbox:
-
-- Your project is mounted at `/workspace`
-- Only the configured environment is available
-- Memory cap follows `memory_cap` unless overridden with `--memory`
-- On Linux, `HOME` is ephemeral and network follows the config profile
-
-### `lagoon up`
-
-Starts every command in `[up]` and shows a live dashboard with services, status, logs, ports (with clickable `http://localhost:…` links), uptime, and engine/cache state. Services bind to real localhost ports — use your browser as you would with docker-compose.
+Define services in `lagoon.toml` and start them. Ports are inferred from the commands and reachable on localhost:
 
 ```toml
 [up]
-app = "python3 -m http.server 8000"
+web = "python3 -m http.server 8000"
 ```
 
-Press `q` or `Ctrl+C` to stop services. On macOS each service runs in its own VM-isolated container, force-cleaned on exit.
-
-### `lagoon ps`
-
-Shows machine class, RAM/memory cap, arch and cores, cache warm/cold, configured and running services with ports and uptime, and the active project.
-
-### `lagoon save` / `lagoon load`
-
-Save an already-built environment, copy it to another machine, and load it without internet:
-
-```bash
-lagoon shell             # build/cache once on a connected machine
-lagoon save runtime.nar  # Linux: Nix closure   macOS: OCI image tar
-# copy the file
-lagoon load runtime.nar
+```sh
+lagoon up
 ```
 
-### `lagoon docker`
+<div align="center"><img src="assets/up.png" alt="lagoon up dashboard with live logs" width="800"></div>
 
-Exports a Docker-compatible image tar:
+Check what's running:
 
-```bash
-lagoon docker image.tar
-docker load < image.tar
-```
+<div align="center"><img src="assets/ps.png" alt="lagoon ps status dashboard" width="800"></div>
 
-On Linux this builds via `nixpkgs.dockerTools` (no Docker daemon needed). On macOS it exports the environment's image through the engine.
+## Commands
 
-## `lagoon.toml`
+| Command | Description |
+| --- | --- |
+| `lagoon init` | Create `lagoon.toml` interactively with hardware detection and live package search |
+| `lagoon shell` | Enter the sandboxed environment |
+| `lagoon run <cmd>` | Run a one-off command in the sandbox |
+| `lagoon up` | Start `[up]` services with a live dashboard (`q` to stop) |
+| `lagoon ps` | Show machine, cache, and running processes (`--all` for every project) |
+| `lagoon watch <cmd>` | Re-run a command on file changes (requires watchexec) |
+| `lagoon check` | Validate `lagoon.toml` and verify packages exist in nixpkgs |
+| `lagoon save <file>` | Export the environment for offline transfer |
+| `lagoon load <file>` | Import an environment archive |
+| `lagoon docker <file>` | Export a Docker-compatible image tar |
+| `lagoon rm` | Remove the project's cached environment |
+
+## Configuration
+
+`lagoon.toml` lives in your project root and is meant to be committed.
 
 ```toml
 packages = ["python311", "uv"]
+
+# pinned nixpkgs revision — set by lagoon init, used on Linux
 nixpkgs_commit = "26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915"
 nixpkgs_sha256 = "1knl8dcr5ip70a2vbky3q844212crwrvybyw2nhfmgm1mvqry963"
-profile = "network"
-intent = "dev-workspace"
-preset = "python"
-memory_cap = "2g"
-# image = "python:3.12-slim"   # optional: override the macOS container image
+
+profile = "network"          # "minimal" (no network) or "network"
+memory_cap = "2g"            # default memory limit for shells and services
+image = "python:3.12-slim"   # optional: container image used on macOS
+on_enter = "uv sync"         # optional: runs on every shell entry
 
 [up]
-app = "python3 -m http.server 8000"
+web = "python3 -m http.server 8000"
 ```
 
-The Nix pin makes Linux environments bit-reproducible. On macOS the preset (or explicit `image`) picks the container image. Commit `lagoon.toml` so teammates and offline machines get the same runtime.
+| Key | Required | Description |
+| --- | --- | --- |
+| `packages` | yes | Nix package names ([search](https://search.nixos.org/packages)) |
+| `nixpkgs_commit` / `nixpkgs_sha256` | yes | Pinned nixpkgs revision; written by `lagoon init` |
+| `profile` | no | `minimal` (default, no network) or `network` |
+| `memory_cap` | no | Default memory limit, e.g. `768m`, `2g` |
+| `image` | no | macOS container image override; ignored on Linux |
+| `on_enter` | no | Shell command run on every sandbox entry |
+| `[up]` | no | Table of service name → command for `lagoon up` |
 
-## Build from source
+## How it works
 
-```bash
-git clone https://github.com/imraghavojha/lagoon
-cd lagoon
+| | Linux | macOS |
+| --- | --- | --- |
+| Packages | resolved from the pinned nixpkgs commit via `nix-shell` | provided by the preset's image (`python:3.12-slim`, `node:22-slim`, `golang:1.24`, …) or an explicit `image` |
+| Isolation | bubblewrap user namespaces — empty filesystem, project at `/workspace`, ephemeral `$HOME` | one lightweight VM per environment via apple/container (or a Docker container) |
+| Warm start | cached `nix-shell` resolution, no process overhead | VM boot, ~1s on Apple Silicon |
+| `save` / `load` | Nix closure (`.nar`) via `nix-store --export` | OCI image tar |
+
+On Linux, `lagoon shell` generates a `shell.nix` from your config, resolves it once, caches the result, and `exec`s into a bubblewrap sandbox. Nothing runs when you're not in a shell.
+
+On macOS, the same config maps to a container image and lagoon drives the engine CLI directly — `lagoon up` publishes each service's inferred ports so localhost works exactly like docker-compose.
+
+## Development
+
+```sh
 go build -o lagoon .
+go test ./...
 ```
+
+The demo recordings in [`assets/`](assets/) are made with [vhs](https://github.com/charmbracelet/vhs); the tapes live in [`assets/tapes/`](assets/tapes/) and run against the real binary.
