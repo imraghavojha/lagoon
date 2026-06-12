@@ -30,6 +30,22 @@ func TestConfigFromChoicesUsesPresetAndExtras(t *testing.T) {
 	}
 }
 
+func TestConfigFromChoicesHonorsNetworkOff(t *testing.T) {
+	// the user explicitly turned network off for a network-profile preset —
+	// the answer must win over the preset default
+	cfg, err := configFromChoices(initChoices{
+		Intent:   intentDev,
+		PresetID: "python", // preset profile is "network"
+		Network:  false,
+	}, hardware.Machine{Class: hardware.LaptopClass})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Profile != "minimal" {
+		t.Fatalf("profile = %q, want minimal (explicit network off must win)", cfg.Profile)
+	}
+}
+
 func TestConfigFromChoicesServiceAddsUp(t *testing.T) {
 	cfg, err := configFromChoices(initChoices{
 		Intent:     intentServices,

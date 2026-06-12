@@ -21,6 +21,7 @@ type Config struct {
 	NixpkgsCommit string            `toml:"nixpkgs_commit"`
 	NixpkgsSHA256 string            `toml:"nixpkgs_sha256"`
 	Profile       string            `toml:"profile"`              // "minimal" or "network"
+	Image         string            `toml:"image,omitempty"`      // container image override for macOS engine
 	Intent        string            `toml:"intent,omitempty"`     // dev-workspace, service-stack, portable-runtime
 	Preset        string            `toml:"preset,omitempty"`     // curated preset id used by init
 	MemoryCap     string            `toml:"memory_cap,omitempty"` // suggested cap, e.g. 768m, 2g

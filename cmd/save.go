@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/imraghavojha/lagoon/internal/config"
+	"github.com/imraghavojha/lagoon/internal/engine"
 	"github.com/imraghavojha/lagoon/internal/nix"
 	"github.com/imraghavojha/lagoon/internal/project"
 	"github.com/imraghavojha/lagoon/internal/ui"
@@ -29,16 +30,24 @@ export.`,
 }
 
 func runSave(cmd *cobra.Command, args []string) error {
+	cfg, err := config.Read(config.Filename)
+	if err != nil {
+		return fmt.Errorf("no lagoon.toml found — run 'lagoon init' first")
+	}
+
+	// macOS: portability means saving the container image as an OCI tar
+	if engine.UseContainers() {
+		if len(args) == 0 {
+			return fmt.Errorf("on macOS, save needs a filename: lagoon save runtime.tar")
+		}
+		return saveImageArchive(cfg, args[0], "Lagoon save")
+	}
+
 	out, label, closeOut, err := saveOutput(args)
 	if err != nil {
 		return err
 	}
 	defer closeOut()
-
-	cfg, err := config.Read(config.Filename)
-	if err != nil {
-		return fmt.Errorf("no lagoon.toml found — run 'lagoon init' first")
-	}
 
 	absPath, _ := filepath.Abs(".")
 	cacheDir := projectCacheDir(absPath)
@@ -76,6 +85,42 @@ func runSave(cmd *cobra.Command, args []string) error {
 		if info, err := file.Stat(); err == nil {
 			fmt.Fprintln(os.Stderr, ui.OK.Render("✓ ")+"saved "+label+" ("+project.FormatBytes(info.Size())+")")
 		}
+	}
+	return nil
+}
+
+// saveImageArchive exports the project's container image as an OCI tar (macOS).
+func saveImageArchive(cfg *config.Config, outFile, title string) error {
+	eng, err := engine.Detect()
+	if err != nil {
+		return err
+	}
+	if err := eng.EnsureRunning(); err != nil {
+		return err
+	}
+	image := engine.ImageFor(cfg)
+	if !eng.HasImage(image) {
+		pull := eng.Pull(image)
+		pull.Stdout = os.Stderr
+		pull.Stderr = os.Stderr
+		if err := pull.Run(); err != nil {
+			return fmt.Errorf("pulling %s: %w", image, err)
+		}
+	}
+	fmt.Fprintln(os.Stderr, ui.Card(title,
+		ui.Chip("engine", eng.Name(), ui.Good),
+		ui.Chip("image", image, ui.Accent),
+		ui.Chip("target", outFile, ui.Accent),
+		ui.Bullet(ui.Dim.Render("•"), "OCI tar — load anywhere with lagoon load / docker load"),
+	))
+	save := eng.SaveImage(image, outFile)
+	save.Stdout = os.Stderr
+	save.Stderr = os.Stderr
+	if err := save.Run(); err != nil {
+		return err
+	}
+	if info, err := os.Stat(outFile); err == nil {
+		fmt.Fprintln(os.Stderr, ui.OK.Render("✓ ")+"saved "+outFile+" ("+project.FormatBytes(info.Size())+")")
 	}
 	return nil
 }

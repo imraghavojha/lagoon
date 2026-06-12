@@ -16,9 +16,12 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "lagoon",
-	Short: "beautiful Linux dev environments and tiny runtimes without Docker overhead",
-	Long: `Lagoon is a Linux CLI for reproducible dev shells, small local service
-stacks, offline portable runtimes, and Docker export when you need it.
+	Short: "beautiful dev environments and tiny runtimes without Docker overhead",
+	Long: `Lagoon is a CLI for reproducible dev shells, small local service stacks,
+offline portable runtimes, and Docker export when you need it.
+
+Linux runs environments through Nix + bubblewrap (no daemon).
+macOS runs them in lightweight VMs via apple/container (docker fallback).
 
 Core flow:
   lagoon init             hardware-aware wizard and config preview

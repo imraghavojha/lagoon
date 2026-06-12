@@ -5,11 +5,22 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/imraghavojha/lagoon/internal/engine"
 )
 
-// RunAll checks bwrap, nix-shell, and user namespace support.
-// stops at the first failure — no point continuing if bwrap is missing.
+// RunAll verifies the platform runtime is usable.
+// macOS: a container engine (apple/container or docker) must be installed and running.
+// Linux: bwrap, nix-shell, and user namespaces must be available.
+// stops at the first failure — no point continuing if the runtime is missing.
 func RunAll() error {
+	if engine.UseContainers() {
+		eng, err := engine.Detect()
+		if err != nil {
+			return err
+		}
+		return eng.EnsureRunning()
+	}
 	if err := checkBwrap(); err != nil {
 		return err
 	}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/imraghavojha/lagoon/internal/config"
+	"github.com/imraghavojha/lagoon/internal/engine"
 	"github.com/imraghavojha/lagoon/internal/hardware"
 	"github.com/imraghavojha/lagoon/internal/nix"
 	"github.com/imraghavojha/lagoon/internal/preflight"
@@ -33,36 +34,24 @@ var shellCmd = &cobra.Command{
 func init() {
 	shellCmd.Flags().StringVar(&cmdFlag, "cmd", "", "run a one-off command instead of an interactive shell")
 	shellCmd.Flags().StringArrayVarP(&envFlags, "env", "e", nil, "set env var in sandbox (KEY=VALUE)")
-	shellCmd.Flags().StringVarP(&memFlag, "memory", "m", "", "limit sandbox memory via systemd-run (e.g. 512m, 1g)")
+	shellCmd.Flags().StringVarP(&memFlag, "memory", "m", "", "limit sandbox memory (e.g. 512m, 1g)")
 }
 
 func runShell(cmd *cobra.Command, args []string) error {
-	// check that bwrap, nix-shell, and user namespaces are available
+	// check the platform runtime (engine on macOS; bwrap/nix/userns on Linux)
 	if err := preflight.RunAll(); err != nil {
 		fmt.Fprintln(os.Stderr, fail("✗")+" "+err.Error())
 		os.Exit(1)
 	}
 
-	// load lagoon.toml — offer to run init inline if it's missing
-	cfg, err := config.Read(config.Filename)
+	cfg, err := loadConfigOrInit()
 	if err != nil {
-		var doInit bool
-		if herr := huh.NewConfirm().
-			Title("No lagoon.toml found. Run lagoon init now?").
-			Affirmative("yes").
-			Negative("no").
-			Value(&doInit).
-			Run(); herr != nil || !doInit {
-			fmt.Fprintln(os.Stderr, fail("✗")+" no lagoon.toml. run 'lagoon init' first.")
-			os.Exit(1)
-		}
-		if err := runInit(nil, nil); err != nil {
-			return err
-		}
-		cfg, err = config.Read(config.Filename)
-		if err != nil {
-			return fmt.Errorf("reading config after init: %w", err)
-		}
+		return err
+	}
+
+	// macOS: run the environment in a container instead of nix+bwrap
+	if engine.UseContainers() {
+		return runShellContainer(cfg)
 	}
 
 	// figure out where to put the generated shell.nix
@@ -122,6 +111,32 @@ func runShell(cmd *cobra.Command, args []string) error {
 
 	// replace this process with bwrap — no cleanup needed on exit
 	return sandbox.Enter(cfg, resolved, absPath, cmdFlag, effectiveMem, envFlags)
+}
+
+// loadConfigOrInit reads lagoon.toml, offering to run init inline if missing.
+func loadConfigOrInit() (*config.Config, error) {
+	cfg, err := config.Read(config.Filename)
+	if err == nil {
+		return cfg, nil
+	}
+	var doInit bool
+	if herr := huh.NewConfirm().
+		Title("No lagoon.toml found. Run lagoon init now?").
+		Affirmative("yes").
+		Negative("no").
+		Value(&doInit).
+		Run(); herr != nil || !doInit {
+		fmt.Fprintln(os.Stderr, fail("✗")+" no lagoon.toml. run 'lagoon init' first.")
+		os.Exit(1)
+	}
+	if err := runInit(nil, nil); err != nil {
+		return nil, err
+	}
+	cfg, err = config.Read(config.Filename)
+	if err != nil {
+		return nil, fmt.Errorf("reading config after init: %w", err)
+	}
+	return cfg, nil
 }
 
 func renderShellHeader(cfg *config.Config, resolved *nix.ResolvedEnv, cacheHit bool, memory string) {

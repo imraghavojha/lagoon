@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/imraghavojha/lagoon/internal/config"
+	"github.com/imraghavojha/lagoon/internal/engine"
 	"github.com/spf13/cobra"
 )
 
@@ -21,6 +23,17 @@ func runRm(cmd *cobra.Command, args []string) error {
 	}
 
 	dir := projectCacheDir(absPath)
+
+	// macOS: also clear any leftover service containers for this project
+	if engine.UseContainers() {
+		if eng, eerr := engine.Detect(); eerr == nil {
+			if cfg, cerr := config.Read(config.Filename); cerr == nil {
+				for _, name := range sortedServiceNames(cfg.Up) {
+					eng.RemoveContainer(engine.ContainerName(absPath, name))
+				}
+			}
+		}
+	}
 
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		fmt.Println("no cache found for this project.")

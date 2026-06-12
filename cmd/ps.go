@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/imraghavojha/lagoon/internal/config"
+	"github.com/imraghavojha/lagoon/internal/engine"
 	"github.com/imraghavojha/lagoon/internal/hardware"
 	"github.com/imraghavojha/lagoon/internal/project"
 	"github.com/imraghavojha/lagoon/internal/ui"
@@ -57,6 +58,8 @@ func writeServicePIDFile(cacheDir, project string, cfg *config.Config, name, com
 }
 
 func writeProcessFile(path string, info sandboxPID) {
+	// the cache dir may not exist yet on the container backend (no shell.nix)
+	_ = os.MkdirAll(filepath.Dir(path), 0755)
 	b, _ := json.Marshal(info)
 	_ = os.WriteFile(path, b, 0644)
 }
@@ -95,6 +98,13 @@ func runPs(cmd *cobra.Command, args []string) error {
 	cfg, err := config.Read(config.Filename)
 	if err == nil {
 		status = project.Inspect(cfg, absPath, lagoonCacheBase())
+		// macOS: "warm" means the container image is already local
+		if engine.UseContainers() {
+			status.CacheReady = false
+			if eng, eerr := engine.Detect(); eerr == nil {
+				status.CacheReady = eng.HasImage(engine.ImageFor(cfg))
+			}
+		}
 	}
 
 	entries := runningEntries(lagoonCacheBase(), absPath, psAllProjects)
@@ -167,10 +177,7 @@ func renderStatusDashboard(cfg *config.Config, status project.Status, machine ha
 			if !started.IsZero() {
 				uptime = time.Since(started).Round(time.Second).String()
 			}
-			mem := "?"
-			if runtime.GOOS == "linux" {
-				mem = readProcessMem(e.PID)
-			}
+			mem := readProcessMem(e.PID)
 			ports := e.Ports
 			if len(ports) == 0 && e.Command != "" {
 				ports = inferPorts(e.Command)
@@ -189,9 +196,6 @@ func renderStatusDashboard(cfg *config.Config, status project.Status, machine ha
 }
 
 func runningEntries(cacheBase, currentProject string, allProjects bool) []sandboxPID {
-	if runtime.GOOS != "linux" {
-		return nil
-	}
 	files, _ := filepath.Glob(filepath.Join(cacheBase, "*", "*.pid.json"))
 	legacy, _ := filepath.Glob(filepath.Join(cacheBase, "*", "pid.json"))
 	files = append(files, legacy...)
@@ -229,8 +233,13 @@ func isProcessAlive(pid int) bool {
 	return syscall.Kill(pid, 0) == nil
 }
 
-// readProcessMem reads VmRSS from /proc/<pid>/status and returns a formatted string.
+// readProcessMem returns the resident memory of a process. Linux reads VmRSS
+// from /proc; on macOS the workload runs inside a VM the host can't meter per
+// process, so we show "—" instead of a misleading number.
 func readProcessMem(pid int) string {
+	if runtime.GOOS != "linux" || pid <= 0 {
+		return "—"
+	}
 	b, err := os.ReadFile(fmt.Sprintf("/proc/%d/status", pid))
 	if err != nil {
 		return "?"

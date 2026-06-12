@@ -27,5 +27,8 @@ func shellQuoteArgs(args []string) string {
 }
 
 func init() {
-	runCmd.Flags().StringVarP(&memFlag, "memory", "m", "", "limit sandbox memory via systemd-run (e.g. 512m, 1g)")
+	runCmd.Flags().StringVarP(&memFlag, "memory", "m", "", "limit sandbox memory (e.g. 512m, 1g)")
+	// everything after the first positional arg belongs to the sandboxed
+	// command — lagoon run python3 --version must not eat --version
+	runCmd.Flags().SetInterspersed(false)
 }

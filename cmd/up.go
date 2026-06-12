@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/imraghavojha/lagoon/internal/config"
+	"github.com/imraghavojha/lagoon/internal/engine"
 	"github.com/imraghavojha/lagoon/internal/hardware"
 	"github.com/imraghavojha/lagoon/internal/nix"
 	"github.com/imraghavojha/lagoon/internal/preflight"
@@ -47,7 +49,7 @@ Press q or Ctrl+C to stop all services.`,
 }
 
 func init() {
-	upCmd.Flags().StringVarP(&upMemoryFlag, "memory", "m", "", "limit each service via systemd-run (defaults to memory_cap when set)")
+	upCmd.Flags().StringVarP(&upMemoryFlag, "memory", "m", "", "limit each service's memory (defaults to memory_cap when set)")
 }
 
 // svcColors cycles through distinct terminal colors for service prefixes.
@@ -76,53 +78,85 @@ func runUp(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	cacheDir := projectCacheDir(absPath)
-	shellNixPath := filepath.Join(cacheDir, "shell.nix")
 
-	sum, err := nix.GenerateShellNix(cfg, shellNixPath)
-	if err != nil {
-		return fmt.Errorf("generating shell.nix: %w", err)
-	}
-
-	resolved, hit := nix.LoadCache(cacheDir, sum)
-	if hit {
-		if _, err := os.Stat(resolved.BashPath); err != nil {
-			hit = false
-		}
-	}
-
-	machine := hardware.Detect(absPath)
-	if !hit {
-		if runtime.GOARCH == "arm64" {
-			fmt.Println(warn("!") + " arm: first run may take 10-60 min to compile packages")
-		}
-		env, err := resolveWithProgress(shellNixPath)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err.Error())
-			os.Exit(1)
-		}
-		resolved = env
-		_ = nix.SaveCache(cacheDir, resolved, sum)
-	}
-	nix.CreateGCRoots(cacheDir, resolved)
-
-	netCfg := *cfg
-	netCfg.Profile = "network"
 	mem := upMemoryFlag
 	if mem == "" {
 		mem = cfg.MemoryCap
 	}
-
 	names := make([]string, 0, len(cfg.Up))
 	for n := range cfg.Up {
 		names = append(names, n)
 	}
 	sort.Strings(names)
 
+	machine := hardware.Detect(absPath)
 	events := make(chan tea.Msg, 128)
-	runners, err := startServices(&netCfg, resolved, absPath, names, mem, events)
-	if err != nil {
-		stopServices(runners)
-		return err
+	var runners []*runningService
+	var hit bool
+	var engineName string
+
+	if engine.UseContainers() {
+		// macOS: each service runs in its own container with ports published
+		eng, err := engine.Detect()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, fail("✗")+" "+err.Error())
+			os.Exit(1)
+		}
+		engineName = eng.Name()
+		image := engine.ImageFor(cfg)
+		hit = eng.HasImage(image)
+		if !hit {
+			fmt.Println(ui.Hot.Render("↓") + " pulling " + image + " (first run only)")
+			pull := eng.Pull(image)
+			pull.Stdout = os.Stdout
+			pull.Stderr = os.Stderr
+			if err := pull.Run(); err != nil {
+				return fmt.Errorf("pulling %s: %w", image, err)
+			}
+			hit = true
+		}
+		runners, err = startContainerServices(eng, cfg, absPath, names, mem, events)
+		if err != nil {
+			stopServices(runners)
+			cleanupContainerServices(eng, absPath, names)
+			return err
+		}
+		defer cleanupContainerServices(eng, absPath, names)
+	} else {
+		shellNixPath := filepath.Join(cacheDir, "shell.nix")
+		sum, err := nix.GenerateShellNix(cfg, shellNixPath)
+		if err != nil {
+			return fmt.Errorf("generating shell.nix: %w", err)
+		}
+
+		var resolved *nix.ResolvedEnv
+		resolved, hit = nix.LoadCache(cacheDir, sum)
+		if hit {
+			if _, err := os.Stat(resolved.BashPath); err != nil {
+				hit = false
+			}
+		}
+		if !hit {
+			if runtime.GOARCH == "arm64" {
+				fmt.Println(warn("!") + " arm: first run may take 10-60 min to compile packages")
+			}
+			env, err := resolveWithProgress(shellNixPath)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err.Error())
+				os.Exit(1)
+			}
+			resolved = env
+			_ = nix.SaveCache(cacheDir, resolved, sum)
+		}
+		nix.CreateGCRoots(cacheDir, resolved)
+
+		netCfg := *cfg
+		netCfg.Profile = "network"
+		runners, err = startServices(&netCfg, resolved, absPath, names, mem, events)
+		if err != nil {
+			stopServices(runners)
+			return err
+		}
 	}
 	defer stopServices(runners)
 	for _, r := range runners {
@@ -134,7 +168,7 @@ func runUp(cmd *cobra.Command, args []string) error {
 	}
 
 	status := project.Inspect(cfg, absPath, lagoonCacheBase())
-	model := newUpModel(names, cfg.Up, runners, events, status, machine, mem, hit)
+	model := newUpModel(names, cfg.Up, runners, events, status, machine, mem, hit, engineName)
 	_, err = tea.NewProgram(model).Run()
 	return err
 }
@@ -161,33 +195,73 @@ type upTickMsg time.Time
 func startServices(cfg *config.Config, env *nix.ResolvedEnv, projectPath string, names []string, memory string, events chan<- tea.Msg) ([]*runningService, error) {
 	runners := make([]*runningService, 0, len(names))
 	for _, name := range names {
-		pr, pw := io.Pipe()
 		c, err := sandbox.Build(cfg, env, projectPath, cfg.Up[name], memory, nil)
 		if err != nil {
-			pw.Close()
 			return runners, fmt.Errorf("building sandbox for %q: %w", name, err)
 		}
-		c.Stdout = pw
-		c.Stderr = pw
-		if err := c.Start(); err != nil {
-			pw.Close()
-			return runners, fmt.Errorf("starting %q: %w", name, err)
+		r, err := launchService(name, c, events)
+		if err != nil {
+			return runners, err
 		}
-		r := &runningService{name: name, cmd: c, done: make(chan struct{}), pipe: pw, start: time.Now()}
 		runners = append(runners, r)
-		go scanServiceLogs(name, pr, events)
-		go func(r *runningService) {
-			_ = r.cmd.Wait()
-			close(r.done)
-			events <- serviceExitMsg{Name: r.name}
-		}(r)
 	}
 	return runners, nil
 }
 
+// startContainerServices launches each [up] service as an attached container
+// (macOS). Inferred ports are published so localhost works like docker-compose.
+func startContainerServices(eng *engine.Engine, cfg *config.Config, projectPath string, names []string, memory string, events chan<- tea.Msg) ([]*runningService, error) {
+	runners := make([]*runningService, 0, len(names))
+	for _, name := range names {
+		// remove leftovers from a previous unclean exit so --name doesn't clash
+		eng.RemoveContainer(engine.ContainerName(projectPath, name))
+		args := engine.ServiceArgs(eng, cfg, projectPath, name, cfg.Up[name], memory, inferPorts(cfg.Up[name]))
+		r, err := launchService(name, exec.Command(eng.Bin, args...), events)
+		if err != nil {
+			return runners, err
+		}
+		runners = append(runners, r)
+	}
+	return runners, nil
+}
+
+// launchService starts a prepared command with piped logs and exit tracking.
+func launchService(name string, c *exec.Cmd, events chan<- tea.Msg) (*runningService, error) {
+	pr, pw := io.Pipe()
+	c.Stdout = pw
+	c.Stderr = pw
+	if err := c.Start(); err != nil {
+		pw.Close()
+		return nil, fmt.Errorf("starting %q: %w", name, err)
+	}
+	r := &runningService{name: name, cmd: c, done: make(chan struct{}), pipe: pw, start: time.Now()}
+	go scanServiceLogs(name, pr, events)
+	go func() {
+		_ = r.cmd.Wait()
+		close(r.done)
+		events <- serviceExitMsg{Name: r.name}
+	}()
+	return r, nil
+}
+
+// cleanupContainerServices force-removes named service containers (best effort).
+func cleanupContainerServices(eng *engine.Engine, projectPath string, names []string) {
+	for _, name := range names {
+		eng.RemoveContainer(engine.ContainerName(projectPath, name))
+	}
+}
+
+// engineBootRe matches container CLI startup progress (e.g. "[6/6] Starting
+// container [0s]") — runtime noise, not service output.
+var engineBootRe = regexp.MustCompile(`^\[[0-9]+/[0-9]+\]`)
+
 func scanServiceLogs(name string, src io.Reader, events chan<- tea.Msg) {
 	s := bufio.NewScanner(src)
 	for s.Scan() {
+		line := strings.TrimSpace(s.Text())
+		if line == "" || engineBootRe.MatchString(line) {
+			continue
+		}
 		events <- serviceLogMsg{Name: name, Line: s.Text()}
 	}
 }
@@ -232,16 +306,17 @@ type upModel struct {
 	machine hardware.Machine
 	memory  string
 	warm    bool
+	engine  string // container engine name on macOS; empty on Linux
 	start   time.Time
 	order   []string
 	svcs    map[string]*serviceView
 }
 
-func newUpModel(names []string, commands map[string]string, runners []*runningService, events <-chan tea.Msg, status project.Status, machine hardware.Machine, memory string, warm bool) upModel {
+func newUpModel(names []string, commands map[string]string, runners []*runningService, events <-chan tea.Msg, status project.Status, machine hardware.Machine, memory string, warm bool, engineName string) upModel {
 	sp := spinner.New()
 	sp.Spinner = spinner.MiniDot
 	sp.Style = lipgloss.NewStyle().Foreground(ui.Accent)
-	m := upModel{spinner: sp, events: events, status: status, machine: machine, memory: memory, warm: warm, start: time.Now(), order: names, svcs: map[string]*serviceView{}}
+	m := upModel{spinner: sp, events: events, status: status, machine: machine, memory: memory, warm: warm, engine: engineName, start: time.Now(), order: names, svcs: map[string]*serviceView{}}
 	for i, r := range runners {
 		pid := 0
 		if r.cmd.Process != nil {
@@ -304,9 +379,13 @@ func (m upModel) View() string {
 	if mem == "" {
 		mem = "none"
 	}
+	runtimeChip := ui.Chip("network", "on", ui.Good)
+	if m.engine != "" {
+		runtimeChip = ui.Chip("engine", m.engine, ui.Good)
+	}
 	fmt.Fprintf(&b, "%s\n\n", ui.Card("Lagoon up",
 		ui.Chip("machine", string(m.machine.Class), ui.Accent)+"  "+ui.Chip("arch", m.machine.Arch, ui.Accent)+"  "+ui.Chip("cores", fmt.Sprint(m.machine.Cores), ui.Accent),
-		ui.Chip("network", "on", ui.Good)+"  "+ui.Chip("memory cap", mem, ui.Warn)+"  "+ui.Chip("cache", cache, ui.Good),
+		runtimeChip+"  "+ui.Chip("memory cap", mem, ui.Warn)+"  "+ui.Chip("cache", cache, ui.Good),
 		ui.Chip("uptime", time.Since(m.start).Round(time.Second).String(), ui.Accent)+"  "+ui.Chip("services", fmt.Sprint(len(m.order)), ui.Good),
 	))
 	b.WriteString(ui.Title.Render("Services") + "\n")
@@ -321,12 +400,13 @@ func (m upModel) View() string {
 		if svc.Status != "running" {
 			statusStyle = ui.Err
 		}
-		mem := "?"
-		if svc.PID > 0 && runtime.GOOS == "linux" {
-			mem = readProcessMem(svc.PID)
-		}
-		fmt.Fprintf(&b, "  %s %s  pid:%d  ports:%s  mem:%s  up:%s\n", statusStyle.Render("●"), nameStyle.Render(svc.Name), svc.PID, portsLabel(svc.Ports), mem, time.Since(svc.Start).Round(time.Second))
+		fmt.Fprintf(&b, "  %s %s  pid:%d  ports:%s  mem:%s  up:%s\n", statusStyle.Render("●"), nameStyle.Render(svc.Name), svc.PID, portsLabel(svc.Ports), readProcessMem(svc.PID), time.Since(svc.Start).Round(time.Second))
 		fmt.Fprintf(&b, "     %s\n", ui.Dim.Render(svc.Cmd))
+		if svc.Status == "running" {
+			for _, p := range svc.Ports {
+				fmt.Fprintf(&b, "     %s\n", ui.Dim.Render("→ ")+ui.Title.Render("http://localhost:"+p))
+			}
+		}
 	}
 	b.WriteString("\n" + ui.Title.Render("Logs") + "\n")
 	for _, name := range m.order {
@@ -349,10 +429,3 @@ func (m upModel) View() string {
 	return b.String()
 }
 
-// prefixLines reads lines from src and writes each to dst with the given prefix.
-func prefixLines(dst io.Writer, prefix string, src io.Reader) {
-	s := bufio.NewScanner(src)
-	for s.Scan() {
-		fmt.Fprintln(dst, prefix+s.Text())
-	}
-}

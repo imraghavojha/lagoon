@@ -1,11 +1,8 @@
 package hardware
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"runtime"
-	"strconv"
 	"strings"
 	"syscall"
 )
@@ -18,6 +15,7 @@ const (
 	PiClass     Class = "Pi-class"
 	LaptopClass Class = "Laptop-class"
 	MiniPCClass Class = "Mini-PC"
+	MacClass    Class = "Mac"
 )
 
 // Machine describes the local host in the terms the CLI needs for guidance.
@@ -36,12 +34,16 @@ func Detect(path string) Machine {
 		path = "."
 	}
 	m := Machine{
-		TotalRAMMiB: readLinuxMemTotalMiB(),
+		TotalRAMMiB: memTotalMiB(),
 		Cores:       runtime.NumCPU(),
 		Arch:        runtime.GOARCH,
 		DiskFreeMiB: diskFreeMiB(path),
 	}
-	m.Class = Classify(m.TotalRAMMiB, m.Cores, m.Arch)
+	if runtime.GOOS == "darwin" {
+		m.Class = MacClass
+	} else {
+		m.Class = Classify(m.TotalRAMMiB, m.Cores, m.Arch)
+	}
 	return m
 }
 
@@ -69,6 +71,11 @@ func DefaultMemoryCap(m Machine) string {
 		return "768m"
 	case MiniPCClass:
 		return "4g"
+	case MacClass:
+		if m.TotalRAMMiB >= 16384 {
+			return "4g"
+		}
+		return "2g"
 	default:
 		return "2g"
 	}
@@ -83,7 +90,7 @@ func UpRecommended(m Machine) bool {
 // Warnings returns first-run caveats based on detected hardware.
 func Warnings(m Machine) []string {
 	var warnings []string
-	if strings.Contains(strings.ToLower(m.Arch), "arm") {
+	if runtime.GOOS == "linux" && strings.Contains(strings.ToLower(m.Arch), "arm") {
 		warnings = append(warnings, "ARM cold starts can compile packages; warm starts use the cache.")
 	}
 	if m.TotalRAMMiB > 0 && m.TotalRAMMiB < 2048 {
@@ -107,31 +114,6 @@ func FormatMiB(v int64) string {
 		return fmt.Sprintf("%.1f GiB", float64(v)/1024)
 	}
 	return fmt.Sprintf("%d MiB", v)
-}
-
-func readLinuxMemTotalMiB() int64 {
-	f, err := os.Open("/proc/meminfo")
-	if err != nil {
-		return 0
-	}
-	defer f.Close()
-	s := bufio.NewScanner(f)
-	for s.Scan() {
-		line := s.Text()
-		if !strings.HasPrefix(line, "MemTotal:") {
-			continue
-		}
-		fields := strings.Fields(line)
-		if len(fields) < 2 {
-			return 0
-		}
-		kb, err := strconv.ParseInt(fields[1], 10, 64)
-		if err != nil {
-			return 0
-		}
-		return kb / 1024
-	}
-	return 0
 }
 
 func diskFreeMiB(path string) int64 {

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/imraghavojha/lagoon/internal/config"
+	"github.com/imraghavojha/lagoon/internal/engine"
 	"github.com/imraghavojha/lagoon/internal/nix"
 	"github.com/imraghavojha/lagoon/internal/project"
 	"github.com/imraghavojha/lagoon/internal/ui"
@@ -29,16 +30,24 @@ locally; export Docker when you need to cross into Docker ecosystems.`,
 }
 
 func runDocker(cmd *cobra.Command, args []string) error {
+	cfg, err := config.Read(config.Filename)
+	if err != nil {
+		return fmt.Errorf("no lagoon.toml found — run 'lagoon init' first")
+	}
+
+	// macOS: the environment already is a container image — export it directly
+	if engine.UseContainers() {
+		if len(args) == 0 {
+			return fmt.Errorf("on macOS, docker export needs a filename: lagoon docker image.tar")
+		}
+		return saveImageArchive(cfg, args[0], "Lagoon docker")
+	}
+
 	out, label, closeOut, err := dockerOutput(args)
 	if err != nil {
 		return err
 	}
 	defer closeOut()
-
-	cfg, err := config.Read(config.Filename)
-	if err != nil {
-		return fmt.Errorf("no lagoon.toml found — run 'lagoon init' first")
-	}
 
 	absPath, _ := filepath.Abs(".")
 	name := "lagoon-" + strings.ToLower(filepath.Base(absPath))

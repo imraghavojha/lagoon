@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -14,12 +15,40 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var nixSearchURL = func() string {
-	if v := os.Getenv("LAGOON_NIX_SEARCH_URL"); v != "" {
-		return v
+// searchSchemaVersion is the elasticsearch mapping version search.nixos.org
+// currently serves. NixOS rotates it every few releases, so queryNixpkgs
+// probes forward from here when the index has moved.
+const searchSchemaVersion = 48
+
+var (
+	searchURLOverride = os.Getenv("LAGOON_NIX_SEARCH_URL")
+
+	searchURLMu       sync.Mutex
+	resolvedSearchURL string // first URL that answered; reused for the process
+)
+
+func candidateSearchURLs() []string {
+	if searchURLOverride != "" {
+		return []string{searchURLOverride}
 	}
-	return "https://search.nixos.org/backend/latest-42-nixpkgs-unstable/nix-packages/_search"
-}()
+	searchURLMu.Lock()
+	resolved := resolvedSearchURL
+	searchURLMu.Unlock()
+	if resolved != "" {
+		return []string{resolved}
+	}
+	urls := make([]string, 0, 13)
+	for v := searchSchemaVersion; v <= searchSchemaVersion+12; v++ {
+		urls = append(urls, fmt.Sprintf("https://search.nixos.org/backend/latest-%d-nixos-unstable/_search", v))
+	}
+	return urls
+}
+
+func rememberSearchURL(url string) {
+	searchURLMu.Lock()
+	resolvedSearchURL = url
+	searchURLMu.Unlock()
+}
 
 type nixPkg struct{ name, desc string }
 
@@ -122,20 +151,46 @@ func fetchPkgsCmd(q string) tea.Cmd {
 }
 
 func queryNixpkgs(q string) ([]nixPkg, error) {
-	body := fmt.Sprintf(`{"query":{"multi_match":{"query":%q,"fields":["package_attr_name^9","package_pname^6","package_description^1"]}},"size":8}`, q)
+	// the index mixes packages and options — restrict to packages
+	body := fmt.Sprintf(`{"query":{"bool":{"must":[{"term":{"type":"package"}},{"multi_match":{"query":%q,"fields":["package_attr_name^9","package_pname^6","package_description^1"]}}]}},"size":8}`, q)
+	var lastErr error
+	for _, url := range candidateSearchURLs() {
+		pkgs, indexGone, err := doNixSearch(url, body)
+		if err == nil {
+			rememberSearchURL(url)
+			return pkgs, nil
+		}
+		lastErr = err
+		if !indexGone {
+			return nil, err // network/auth problem — probing won't help
+		}
+	}
+	return nil, lastErr
+}
+
+// doNixSearch posts one search request. indexGone reports a 404 (rotated
+// index), which callers treat as "try the next schema version".
+func doNixSearch(url, body string) (pkgs []nixPkg, indexGone bool, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, "POST", nixSearchURL, strings.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(body))
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
+	// public read-only credentials baked into search.nixos.org's frontend
 	req.SetBasicAuth("aWVSALXpZv", "X8gPHnzL52wFEekuxsfQ9cSh")
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, true, fmt.Errorf("nixpkgs search index moved — update lagoon or set LAGOON_NIX_SEARCH_URL")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, false, fmt.Errorf("nixpkgs search returned HTTP %d", resp.StatusCode)
+	}
 
 	var result struct {
 		Hits struct {
@@ -148,13 +203,13 @@ func queryNixpkgs(q string) ([]nixPkg, error) {
 		} `json:"hits"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	pkgs := make([]nixPkg, 0, len(result.Hits.Hits))
+	pkgs = make([]nixPkg, 0, len(result.Hits.Hits))
 	for _, h := range result.Hits.Hits {
 		pkgs = append(pkgs, nixPkg{name: h.Source.Name, desc: h.Source.Desc})
 	}
-	return pkgs, nil
+	return pkgs, false, nil
 }
 
 var (

@@ -8,9 +8,14 @@ builds:
       - -s -w -X github.com/imraghavojha/lagoon/cmd.version={{.Version}}
     goos:
       - linux
+      - darwin
     goarch:
       - arm64
       - amd64
+    ignore:
+      # macOS support targets Apple Silicon (apple/container requirement)
+      - goos: darwin
+        goarch: amd64
 
 archives:
   - formats: [tar.gz]

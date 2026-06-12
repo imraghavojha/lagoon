@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/imraghavojha/lagoon/internal/config"
+	"github.com/imraghavojha/lagoon/internal/engine"
 	"github.com/spf13/cobra"
 )
 
@@ -51,6 +52,18 @@ func runCheck(cmd *cobra.Command, args []string) error {
 			fmt.Println(fail("✗") + "  " + e)
 		}
 		return errors.New("lagoon.toml is invalid")
+	}
+
+	// macOS: confirm the container engine and resolved image alongside the
+	// nixpkgs check (the same lagoon.toml resolves through nix on Linux)
+	if engine.UseContainers() {
+		if eng, eerr := engine.Detect(); eerr == nil {
+			fmt.Println(ok("✓") + "  engine: " + eng.Name())
+			fmt.Println(ok("✓") + "  image: " + engine.ImageFor(cfg))
+		} else {
+			fmt.Println(warn("!") + "  no container engine — install apple/container: brew install container")
+		}
+		fmt.Println()
 	}
 
 	// network package search (was lint)

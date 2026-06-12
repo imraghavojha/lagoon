@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/imraghavojha/lagoon/internal/config"
+	"github.com/imraghavojha/lagoon/internal/engine"
 	"github.com/imraghavojha/lagoon/internal/hardware"
 	"github.com/imraghavojha/lagoon/internal/presets"
 	"github.com/imraghavojha/lagoon/internal/ui"
@@ -182,8 +183,9 @@ func configFromChoices(choices initChoices, machine hardware.Machine) (*config.C
 	if len(packages) == 0 {
 		packages = []string{"bashInteractive", "coreutils"}
 	}
+	// the user answered the network prompt explicitly — honor it as-is
 	profile := "minimal"
-	if choices.Network || preset.Profile == "network" && choices.Intent == intentDev {
+	if choices.Network {
 		profile = "network"
 	}
 	cfg := &config.Config{
@@ -208,6 +210,13 @@ func renderInitHero(machine hardware.Machine) string {
 		ui.Chip("arch", machine.Arch, ui.Accent) + "  " + ui.Chip("cores", fmt.Sprint(machine.Cores), ui.Accent),
 		ui.Chip("disk free", hardware.FormatMiB(machine.DiskFreeMiB), ui.Good),
 	}
+	if engine.UseContainers() {
+		if eng, err := engine.Detect(); err == nil {
+			lines = append(lines, ui.Chip("engine", eng.Name(), ui.Good))
+		} else {
+			lines = append(lines, ui.Bullet(ui.Hot.Render("!"), "no container engine — brew install container"))
+		}
+	}
 	for _, warning := range hardware.Warnings(machine) {
 		lines = append(lines, ui.Bullet(ui.Hot.Render("!"), warning))
 	}
@@ -224,6 +233,9 @@ func renderInitPreview(cfg *config.Config, machine hardware.Machine) string {
 		ui.Chip("memory cap", cfg.MemoryCap, ui.Warn),
 		ui.Chip("cache", cacheState+" first run", ui.Warn),
 		ui.Chip("machine", machine.Summary(), ui.Accent),
+	}
+	if engine.UseContainers() {
+		lines = append(lines, ui.Chip("image (macOS)", engine.ImageFor(cfg), ui.Accent))
 	}
 	if len(cfg.Up) > 0 {
 		lines = append(lines, ui.Chip("lagoon up", cfg.Up["app"], ui.Good))
