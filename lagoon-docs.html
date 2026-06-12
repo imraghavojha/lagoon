@@ -444,7 +444,9 @@
         Commit one config file and everyone on your team — plus that Raspberry Pi — gets an identical environment.
       </p>
       <p>
-        It uses <strong>bwrap</strong> (bubblewrap) for isolation and <strong>nix</strong> for reproducibility.
+        On Linux it uses <strong>bwrap</strong> (bubblewrap) for isolation and <strong>nix</strong> for reproducibility.
+        On macOS each environment runs in its own lightweight VM via
+        <a href="https://github.com/apple/container">apple/container</a> (with automatic Docker fallback).
         First run builds the environment. Next runs start instantly.
       </p>
 
@@ -467,13 +469,21 @@ lagoon version   print version and pinned nixpkgs commit</span></div>
     <section id="install">
       <h2>Install</h2>
       <p>
-        lagoon requires Linux (arm64 or amd64), bubblewrap, and Nix.
+        lagoon runs on Linux (arm64 or amd64) and macOS (Apple Silicon, macOS 15+).
       </p>
 
-      <h3>1. Install dependencies</h3>
+      <h3>Linux — 1. Install dependencies</h3>
       <div class="cmd"><span class="prompt">$</span> sudo apt install bubblewrap
 <span class="prompt">$</span> sh &lt;(curl -L https://nixos.org/nix/install) --no-daemon
 <span class="prompt">$</span> source ~/.nix-profile/etc/profile.d/nix.sh</div>
+
+      <h3>macOS — 1. Install the container engine</h3>
+      <div class="cmd"><span class="prompt">$</span> brew install container
+<span class="prompt">$</span> container system start</div>
+      <div class="note">
+        Already have Docker Desktop? lagoon uses it automatically when apple/container isn't installed —
+        but apple/container boots environments noticeably faster.
+      </div>
 
       <h3>2. Install lagoon</h3>
       <div class="cmd"><span class="prompt">$</span> curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh | bash</div>
@@ -482,7 +492,7 @@ lagoon version   print version and pinned nixpkgs commit</span></div>
       <div class="cmd"><span class="prompt">$</span> lagoon version</div>
 
       <div class="note">
-        <strong>On ARM:</strong> Some packages may compile from source on first use. Subsequent runs are instant from cache.
+        <strong>On ARM Linux:</strong> Some packages may compile from source on first use. Subsequent runs are instant from cache.
       </div>
     </section>
 
@@ -647,7 +657,7 @@ lagoon version   print version and pinned nixpkgs commit</span></div>
       <ul>
         <li><code>--cmd</code> — Run a one-off command and exit (see also <code>lagoon run</code>).</li>
         <li><code>--env</code>, <code>-e</code> — Inject environment variables (e.g., <code>-e DEBUG=1</code>). Can be repeated.</li>
-        <li><code>--memory</code>, <code>-m</code> — Cap sandbox memory via systemd-run (e.g., <code>-m 512m</code>). Requires systemd.</li>
+        <li><code>--memory</code>, <code>-m</code> — Cap sandbox memory (e.g., <code>-m 512m</code>). Enforced via systemd-run on Linux and by the container VM on macOS.</li>
       </ul>
     </section>
 
@@ -848,7 +858,7 @@ PID    MEMORY    PROJECT    PACKAGES
       <h2>lagoon version</h2>
       <p>Prints the lagoon version and the pinned nixpkgs commit baked into the binary.</p>
       <div class="cmd"><span class="prompt">$</span> lagoon version
-<span class="output">lagoon v0.3
+<span class="output">lagoon v0.4
 nixpkgs commit 26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915</span></div>
     </section>
 
@@ -869,6 +879,9 @@ nixpkgs commit 26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915</span></div>
 
 <span class="toml-comment"># "minimal" = no network | "network" = host network</span>
 <span class="toml-key">profile</span> = <span class="toml-str">"minimal"</span>
+
+<span class="toml-comment"># optional: container image used on macOS</span>
+<span class="toml-key">image</span> = <span class="toml-str">"python:3.12-slim"</span>
 
 <span class="toml-comment"># optional: runs on every shell entry</span>
 <span class="toml-key">on_enter</span> = <span class="toml-str">"source .venv/bin/activate"</span>
@@ -904,6 +917,11 @@ nixpkgs commit 26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915</span></div>
       <div class="box">
         <h4 style="margin-top: 0;"><code>profile</code></h4>
         <p><strong>Optional.</strong> Either <code>"minimal"</code> (no network) or <code>"network"</code> (host network enabled). Default: <code>"minimal"</code>.</p>
+      </div>
+
+      <div class="box">
+        <h4 style="margin-top: 0;"><code>image</code></h4>
+        <p><strong>Optional, macOS only.</strong> Overrides the container image lagoon picks from your preset (e.g. <code>python:3.12-slim</code>, <code>node:22-slim</code>). Ignored on Linux, where packages resolve through Nix.</p>
       </div>
 
       <div class="box">
@@ -986,7 +1004,12 @@ nixpkgs commit 26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915</span></div>
 
       <h3>Does lagoon work on macOS?</h3>
       <p>
-        No. lagoon requires Linux (arm64 or amd64). It uses Linux-specific tools: bubblewrap and user namespaces.
+        Yes. On Apple Silicon (macOS 15+), lagoon runs every shell and service in its own lightweight VM via
+        <a href="https://github.com/apple/container">apple/container</a> — warm starts boot in about a second.
+        Install it with <code>brew install container &amp;&amp; container system start</code>.
+        If apple/container isn't installed, lagoon falls back to Docker automatically.
+        The same committed <code>lagoon.toml</code> resolves through Nix on Linux and maps to a small
+        official image on macOS (override it with <code>image = "..."</code>).
       </p>
 
       <h3>Can I modify packages after <code>lagoon init</code>?</h3>
@@ -1007,7 +1030,7 @@ nixpkgs commit 26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915</span></div>
             <li>Instant warm starts (&lt;300ms on Pi 4)</li>
             <li>Reproducible via Nix</li>
             <li>Can export to Docker</li>
-            <li>Linux only</li>
+            <li>Linux + macOS (Apple Silicon)</li>
           </ul>
         </div>
         <div class="box">
@@ -1029,9 +1052,10 @@ nixpkgs commit 26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915</span></div>
 
       <h3>What if preflight checks fail?</h3>
       <ul>
-        <li><strong>bubblewrap:</strong> Install with <code>sudo apt install bubblewrap</code></li>
-        <li><strong>nix:</strong> Install with <code>sh &lt;(curl -L https://nixos.org/nix/install) --no-daemon</code></li>
-        <li><strong>user namespaces:</strong> Check <code>/proc/sys/kernel/unprivileged_userns_clone</code> — should be 1 or absent</li>
+        <li><strong>bubblewrap (Linux):</strong> Install with <code>sudo apt install bubblewrap</code></li>
+        <li><strong>nix (Linux):</strong> Install with <code>sh &lt;(curl -L https://nixos.org/nix/install) --no-daemon</code></li>
+        <li><strong>user namespaces (Linux):</strong> Check <code>/proc/sys/kernel/unprivileged_userns_clone</code> — should be 1 or absent</li>
+        <li><strong>container engine (macOS):</strong> <code>brew install container &amp;&amp; container system start</code>, or start Docker Desktop</li>
       </ul>
 
       <h3>Where is the cache stored?</h3>

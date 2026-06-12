@@ -3,7 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>lagoon — reproducible sandboxed shells</title>
+<title>lagoon — reproducible dev environments for Linux &amp; macOS</title>
+<meta name="description" content="Lagoon is a fast, daemon-free alternative to Docker for local dev: Nix + bubblewrap sandboxes on Linux, sub-second lightweight VMs via apple/container on macOS.">
+<meta property="og:title" content="lagoon — reproducible dev environments for Linux & macOS">
+<meta property="og:description" content="Repeatable shells, small service stacks, offline portability. No daemon on Linux; sub-second VMs on Apple Silicon.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌊</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Fraunces:ital,wght@0,300;0,700;1,300;1,700&display=swap" rel="stylesheet">
 <style>
@@ -477,10 +481,10 @@
 <!-- HERO -->
 <div class="hero">
   <div>
-    <div class="hero-badge">v0.3 · arm64 + amd64 · linux</div>
-    <h1>A blazing fast<br><em>Docker alternative</em><br>that won't melt<br>your Pi.</h1>
+    <div class="hero-badge">v0.4 · linux + macos · apple silicon ready</div>
+    <h1>A blazing fast<br><em>Docker alternative</em><br>for your Mac<br>and your Pi.</h1>
     <p class="hero-sub">
-      No daemons. No root. No surprises. One commit gives everyone on your team — and that Pi in the closet — an identical shell.
+      No daemons on Linux. Sub-second VMs on Apple Silicon via apple/container. One committed file gives everyone on your team an identical environment.
     </p>
     <div class="hero-actions">
       <a href="#install" class="btn btn-primary">Install lagoon ↓</a>
@@ -559,7 +563,7 @@
 
 <!-- INSTALL -->
 <div id="install" class="install-strip">
-  <h2>install in one line · requires linux + bubblewrap + nix</h2>
+  <h2>install in one line · linux: bubblewrap + nix · macos: brew install container</h2>
   <div class="install-cmd">
     <span>curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh | bash</span>
     <button class="copy-btn" onclick="navigator.clipboard.writeText('curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh | bash'); this.textContent='copied!'; setTimeout(()=>this.textContent='copy',2000)">copy</button>
@@ -656,6 +660,16 @@
       <span class="stack-name">Linux</span>
     </div>
 
+    <div class="stack-icon">
+      <div class="stack-bubble" style="background:#f5f5f7;">
+        <!-- Apple logo (Simple Icons) for apple/container -->
+        <svg width="32" height="32" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#1d1d1f" d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/>
+        </svg>
+      </div>
+      <span class="stack-name">apple/container</span>
+    </div>
+
   </div>
 </div>
 
@@ -683,16 +697,16 @@
       <p>Live reload built in. <code>lagoon watch</code> monitors your project for changes and restarts your command automatically with a 300ms debounce.</p>
     </div>
     <div class="feature-card">
-      <h3>Tamper detection</h3>
-      <p>Cryptographic safety. <code>lagoon check</code> fingerprints every nix store path to prove byte-for-byte that your environment remains unchanged. Reset baseline with <code>--reset</code>.</p>
+      <h3>Config validation</h3>
+      <p><code>lagoon check</code> validates your <code>lagoon.toml</code> structure and confirms every package exists in nixpkgs — before you waste a cold build on a typo.</p>
     </div>
     <div class="feature-card">
       <h3>Memory limits</h3>
-      <p>Cap sandbox memory via systemd-run (e.g., <code>-m 512m</code>). Ideal for shared machines and dense Pi clusters.</p>
+      <p>Cap sandbox memory with <code>-m 512m</code> — enforced by systemd on Linux and by the VM on macOS. Ideal for shared machines and dense Pi clusters.</p>
     </div>
     <div class="feature-card">
-      <h3>ARM-first</h3>
-      <p>Built for Raspberry Pi 4/5. First run compiles from source on ARM — after that, cache hits make it instant.</p>
+      <h3>Native macOS VMs</h3>
+      <p>On Apple Silicon, every shell and service boots in its own lightweight VM via <a href="https://github.com/apple/container" style="color:var(--accent2);font-weight:700;">apple/container</a> in about a second. Docker is the automatic fallback.</p>
     </div>
     <div class="feature-card">
       <h3>One config, any machine</h3>
@@ -730,7 +744,7 @@
 
       <div class="hbar-chart">
         <div class="hbar-row">
-          <div class="hbar-label">lagoon <span class="hbar-sublabel">v0.3</span></div>
+          <div class="hbar-label">lagoon <span class="hbar-sublabel">v0.4</span></div>
           <div class="hbar-track">
             <div class="hbar-fill hbar-lagoon" style="width:12%; justify-content: center;"></div>
           </div>
@@ -751,6 +765,7 @@
           <div class="hbar-value">24s+</div>
         </div>
       </div>
+      <div class="chart-note">On macOS, lagoon boots each environment in its own lightweight VM via apple/container — warm starts land in about a second on Apple Silicon.</div>
     </div>
   </div>
 </div>
@@ -782,6 +797,9 @@
         <div>&nbsp;</div>
         <div><span class="tc"># "minimal" = no network | "network" = on</span></div>
         <div><span class="tk">profile</span> = <span class="ts">"minimal"</span></div>
+        <div>&nbsp;</div>
+        <div><span class="tc"># optional: container image used on macOS</span></div>
+        <div><span class="tk">image</span> = <span class="ts">"python:3.12-slim"</span></div>
         <div>&nbsp;</div>
         <div><span class="tc"># optional: runs on every shell entry</span></div>
         <div><span class="tk">on_enter</span> = <span class="ts">"source .venv/bin/activate"</span></div>
@@ -820,7 +838,7 @@
       <div class="iso-head">🌊 lagoon</div>
       <div class="iso-body">
         <div style="color:#45475a">$ lagoon shell</div>
-        <div style="color:var(--accent)">✓ environment ready (estimated from benchmarks on raspberry pi 4)</div>
+        <div style="color:var(--accent)">✓ environment ready</div>
         <div>&nbsp;</div>
         <div style="color:var(--accent)">✓ network off (profile: minimal)</div>
         <div style="color:var(--accent)">✓ host filesystem invisible</div>
@@ -836,7 +854,7 @@
 <div class="cta-section">
   <div class="section-label">get started</div>
   <h2>Reproducible sandboxes in 60 seconds.</h2>
-  <p class="section-sub">Linux (arm64 or amd64), bubblewrap, nix. That's all you need.</p>
+  <p class="section-sub">Linux: bubblewrap + nix. macOS: Apple Silicon + <code>brew install container</code>. That's all you need.</p>
   <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap; max-width:400px; margin: 0 auto;">
     <a href="https://github.com/imraghavojha/lagoon#install" class="btn btn-primary" style="font-size:1rem; padding:15px 34px; flex:1; justify-content:center; min-width:160px;">Install lagoon →</a>
     <a href="lagoon-docs.html" class="btn btn-secondary" style="font-size:1rem; padding:15px 34px; flex:1; justify-content:center; min-width:160px;">Read the docs</a>
