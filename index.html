@@ -7,327 +7,651 @@
 <meta name="description" content="lagoon creates isolated project environments from one committed config file. Nix + bubblewrap on Linux, lightweight VMs via apple/container on macOS.">
 <meta property="og:title" content="lagoon">
 <meta property="og:description" content="Fast, reproducible dev environments for Linux and macOS.">
-<meta property="og:image" content="https://raw.githubusercontent.com/imraghavojha/lagoon/main/assets/up.png">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><rect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%23151820%22/><path d=%22M4 4v7h8v-1.5H5.5V4z%22 fill=%22%232de08a%22/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><rect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%23070b0e%22/><path d=%22M4 4v7h8v-1.5H5.5V4z%22 fill=%22%2356e0c0%22/></svg>">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+
 <style>
   :root {
-    --bg: #0e1016;
-    --bg-raise: #151820;
-    --border: #232733;
-    --fg: #d6dae3;
-    --fg-dim: #8b91a0;
-    --fg-faint: #565c6b;
-    --accent: #2de08a;
+    --bg: #070b0e;
+    --bg-2: #0b1115;
+    --line: rgba(214, 234, 230, 0.09);
+    --line-strong: rgba(214, 234, 230, 0.16);
+    --fg: #e9efed;
+    --dim: #93a3a0;
+    --faint: #5b6a68;
+    --aqua: #56e0c0;
+    --aqua-dim: rgba(86, 224, 192, 0.55);
+    --sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --serif: "Instrument Serif", Georgia, serif;
     --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --pad: clamp(20px, 4vw, 56px);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+  }
 
   body {
     background: var(--bg);
     color: var(--fg);
-    font-family: var(--mono);
-    font-size: 15px;
-    line-height: 1.7;
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.65;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
   }
 
-  ::selection { background: var(--accent); color: var(--bg); }
+  ::selection { background: var(--aqua); color: var(--bg); }
 
-  .wrap {
-    max-width: 880px;
-    margin: 0 auto;
-    padding: 0 24px;
+  a { color: inherit; }
+
+  .serif { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: 0; }
+  .mono { font-family: var(--mono); }
+
+  /* ---------- grain ---------- */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: -50%;
+    width: 200%;
+    height: 200%;
+    pointer-events: none;
+    z-index: 9;
+    opacity: 0.05;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 
-  a { color: var(--fg); text-decoration: underline; text-decoration-color: var(--fg-faint); text-underline-offset: 3px; }
-  a:hover { text-decoration-color: var(--accent); color: var(--accent); }
-
-  /* header */
-  header {
+  /* ---------- nav ---------- */
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
-    padding: 28px 0;
+    padding: 16px var(--pad);
+    background: rgba(7, 11, 14, 0.55);
+    border-bottom: 1px solid rgba(214, 234, 230, 0.05);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    backdrop-filter: blur(14px) saturate(1.2);
   }
   .brand {
-    font-weight: 700;
-    font-size: 16px;
-    text-decoration: none;
-    color: var(--fg);
-  }
-  .brand b { color: var(--accent); font-weight: 700; }
-  nav.top { display: flex; gap: 22px; font-size: 13.5px; }
-  nav.top a { color: var(--fg-dim); text-decoration: none; }
-  nav.top a:hover { color: var(--accent); }
-
-  /* hero */
-  .hero { padding: 56px 0 12px; }
-  h1 {
-    font-size: clamp(26px, 4.6vw, 40px);
-    font-weight: 700;
-    line-height: 1.25;
-    letter-spacing: -0.02em;
-    max-width: 21ch;
-  }
-  h1 .a { color: var(--accent); }
-  .tagline {
-    margin-top: 18px;
-    color: var(--fg-dim);
-    max-width: 60ch;
+    font-family: var(--mono);
+    font-weight: 600;
     font-size: 15px;
+    letter-spacing: -0.01em;
+    text-decoration: none;
   }
-  .tagline a { color: var(--fg-dim); }
+  .brand b { color: var(--aqua); font-weight: 600; }
+  .nav-links { display: flex; gap: 28px; }
+  .nav-links a {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--dim);
+    text-decoration: none;
+    transition: color 0.25s ease;
+  }
+  .nav-links a:hover { color: var(--aqua); }
 
-  /* install line */
-  .install {
-    margin-top: 32px;
+  /* ---------- hero ---------- */
+  .hero {
+    position: relative;
+    min-height: 100svh;
     display: flex;
-    align-items: stretch;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg-raise);
+    flex-direction: column;
+    justify-content: center;
+    padding: 110px var(--pad) 64px;
     overflow: hidden;
-    max-width: 720px;
+  }
+  #water {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: radial-gradient(120% 90% at 70% 110%, #0e2a26 0%, #0a1a1c 38%, var(--bg) 75%);
+  }
+  .hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(rgba(7,11,14,0.25), rgba(7,11,14,0) 30%, rgba(7,11,14,0) 60%, var(--bg) 98%);
+  }
+  .hero-inner { position: relative; z-index: 2; max-width: 1200px; }
+
+  .hero-eyebrow {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--aqua-dim);
+    letter-spacing: 0.14em;
+    margin-bottom: clamp(20px, 3vh, 36px);
+  }
+
+  h1 {
+    font-size: clamp(44px, 8.4vw, 124px);
+    font-weight: 500;
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    max-width: 14ch;
+  }
+  h1 .serif { color: var(--aqua); font-size: 1.04em; letter-spacing: -0.01em; }
+  .line { overflow: hidden; display: block; }
+  .line > span { display: inline-block; will-change: transform; }
+
+  .hero-sub {
+    margin-top: clamp(24px, 3.5vh, 40px);
+    max-width: 56ch;
+    color: var(--dim);
+    font-size: clamp(15px, 1.4vw, 17.5px);
+    line-height: 1.75;
+  }
+  .hero-sub a {
+    color: var(--fg);
+    text-decoration: underline;
+    text-decoration-color: var(--faint);
+    text-underline-offset: 4px;
+    transition: text-decoration-color 0.25s ease;
+  }
+  .hero-sub a:hover { text-decoration-color: var(--aqua); }
+
+  .install {
+    margin-top: clamp(28px, 4vh, 44px);
+    display: inline-flex;
+    align-items: stretch;
+    max-width: 100%;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: rgba(11, 17, 21, 0.7);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    overflow: hidden;
   }
   .install pre {
-    flex: 1;
-    min-width: 0; /* let the flex item shrink so long lines scroll, not overflow */
-    padding: 13px 16px;
+    min-width: 0;
+    padding: 14px 18px;
     overflow-x: auto;
+    font-family: var(--mono);
     font-size: 13px;
-    line-height: 1.5;
+    line-height: 1.6;
     white-space: pre;
-    color: var(--fg);
   }
-  .install pre .c { color: var(--fg-faint); }
+  .install pre .c { color: var(--faint); }
+  .install pre .p { color: var(--aqua); }
   .install button {
+    flex-shrink: 0;
     border: 0;
-    border-left: 1px solid var(--border);
+    border-left: 1px solid var(--line);
     background: transparent;
-    color: var(--fg-dim);
+    color: var(--dim);
     font-family: var(--mono);
     font-size: 12px;
-    padding: 0 16px;
+    padding: 0 18px;
     cursor: pointer;
+    transition: color 0.25s ease;
   }
-  .install button:hover { color: var(--accent); }
+  .install button:hover { color: var(--aqua); }
 
   .platforms {
-    margin-top: 12px;
-    font-size: 12.5px;
-    color: var(--fg-faint);
+    margin-top: 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--faint);
+    letter-spacing: 0.04em;
   }
 
-  /* terminal captures */
-  .shot {
-    margin: 40px 0 0;
+  .scroll-hint {
+    position: absolute;
+    bottom: 28px;
+    right: var(--pad);
+    z-index: 2;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--faint);
+    letter-spacing: 0.18em;
+    writing-mode: vertical-rl;
   }
-  .shot img {
-    display: block;
-    width: 100%;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: #181825;
-  }
-  .shot figcaption {
-    margin-top: 10px;
-    font-size: 12.5px;
-    color: var(--fg-faint);
-  }
-  .shot figcaption b { color: var(--fg-dim); font-weight: 400; }
 
-  /* sections */
-  section { padding: 72px 0 0; }
-  section:last-of-type { padding-bottom: 48px; }
+  /* ---------- shared layout ---------- */
+  main { position: relative; z-index: 2; background: var(--bg); }
 
+  section {
+    padding: clamp(72px, 11vh, 130px) var(--pad) 0;
+    max-width: 1320px;
+    margin: 0 auto;
+  }
+
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    border-top: 1px solid var(--line);
+    padding-top: 22px;
+    margin-bottom: clamp(28px, 4vh, 44px);
+  }
+  .sec-num {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--aqua-dim);
+    letter-spacing: 0.1em;
+  }
   h2 {
-    font-size: 13px;
-    font-weight: 400;
-    text-transform: lowercase;
-    letter-spacing: 0.08em;
-    color: var(--accent);
-    margin-bottom: 18px;
+    font-size: clamp(26px, 3.4vw, 44px);
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
   }
-  h2::before { content: "## "; color: var(--fg-faint); }
+  h2 .serif { color: var(--aqua); }
 
-  .prose { max-width: 64ch; color: var(--fg-dim); }
+  .prose {
+    max-width: 58ch;
+    color: var(--dim);
+    font-size: clamp(15px, 1.3vw, 17px);
+    line-height: 1.8;
+  }
   .prose strong { color: var(--fg); font-weight: 600; }
-  .prose code, td code, li code {
-    background: var(--bg-raise);
-    border: 1px solid var(--border);
-    border-radius: 4px;
+  .prose code, td code, .plat code {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 5px;
     padding: 1px 6px;
-    font-size: 0.92em;
+    color: var(--fg);
   }
   .prose + .prose { margin-top: 14px; }
 
-  /* how it works — two columns */
+  /* ---------- figures ---------- */
+  .shot { margin-top: clamp(32px, 5vh, 52px); }
+  .shot-frame {
+    border: 1px solid var(--line-strong);
+    border-radius: 14px;
+    overflow: hidden;
+    background: #10151a;
+  }
+  .shot-bar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .shot-bar i {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--line-strong);
+  }
+  .shot-bar em {
+    margin-left: 10px;
+    font-family: var(--mono);
+    font-style: normal;
+    font-size: 11.5px;
+    color: var(--faint);
+  }
+  /* terminal mockups */
+  .shot, .shot-frame { min-width: 0; max-width: 100%; }
+  .term {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.95;
+    padding: 20px 24px 24px;
+    overflow-x: auto;
+    color: var(--dim);
+  }
+  .term .tl { white-space: pre; }
+  .term .tp { color: var(--aqua); }       /* prompt */
+  .term .tw { color: var(--fg); }         /* bright */
+  .term .td { color: var(--faint); }      /* dim */
+  .term .tb { color: #7fc8f5; }           /* blue */
+  .term .tg { color: var(--aqua); }       /* green/ok */
+  .term .dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--aqua);
+    margin-right: 2px;
+    box-shadow: 0 0 8px rgba(86, 224, 192, 0.7);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 50% { opacity: 0.45; } }
+  .caret {
+    display: inline-block;
+    width: 8px; height: 15px;
+    background: var(--aqua);
+    vertical-align: -2px;
+    animation: blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .caret, .term .dot { animation: none; }
+  }
+  #term-shell { min-height: 252px; }
+  .uplog .tl { transition: opacity 0.45s ease; }
+  .term-narrow { max-width: 880px; }
+
+  .shot figcaption {
+    margin-top: 14px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--faint);
+    line-height: 1.7;
+  }
+  .shot figcaption b { color: var(--dim); font-weight: 500; }
+
+  .shot-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(20px, 2.5vw, 32px);
+    align-items: start;
+  }
+
+  /* ---------- how it works ---------- */
   .platgrid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-top: 26px;
+    gap: clamp(20px, 2.5vw, 32px);
+    margin-top: clamp(32px, 5vh, 52px);
   }
   .plat {
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--bg-raise);
-    padding: 20px 22px;
+    position: relative;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: linear-gradient(150deg, var(--bg-2), rgba(11,17,21,0.3));
+    padding: clamp(24px, 3vw, 40px);
+    transition: border-color 0.35s ease;
+  }
+  .plat:hover { border-color: rgba(86, 224, 192, 0.28); }
+  .plat .os {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--aqua-dim);
+    letter-spacing: 0.12em;
+    margin-bottom: 14px;
   }
   .plat h3 {
-    font-size: 13.5px;
-    font-weight: 600;
-    color: var(--fg);
-    margin-bottom: 10px;
+    font-size: clamp(19px, 1.8vw, 24px);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    margin-bottom: 16px;
   }
-  .plat h3 span { color: var(--fg-faint); font-weight: 400; }
-  .plat p { font-size: 13.5px; color: var(--fg-dim); }
-  .plat p + p { margin-top: 8px; }
+  .plat p { font-size: 15px; color: var(--dim); line-height: 1.75; }
+  .plat p + p { margin-top: 12px; }
 
-  /* config block */
+  /* ---------- config ---------- */
+  .config-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: clamp(28px, 4vw, 64px);
+    align-items: start;
+  }
   pre.code {
-    margin-top: 26px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--bg-raise);
-    padding: 20px 22px;
+    border: 1px solid var(--line-strong);
+    border-radius: 14px;
+    background: var(--bg-2);
+    padding: clamp(20px, 2.5vw, 32px);
     overflow-x: auto;
+    font-family: var(--mono);
     font-size: 13px;
-    line-height: 1.85;
+    line-height: 1.95;
   }
-  .k { color: #7fb4f5; }
-  .s { color: var(--accent); }
-  .c { color: var(--fg-faint); }
+  .k { color: #7fc8f5; }
+  .s { color: var(--aqua); }
+  .c { color: var(--faint); }
 
-  /* command table */
-  table {
-    width: 100%;
-    margin-top: 26px;
-    border-collapse: collapse;
+  /* ---------- commands ---------- */
+  .cmds { margin-top: clamp(32px, 5vh, 52px); }
+  .cmd {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+    gap: 24px;
+    padding: 17px 0;
+    border-bottom: 1px solid var(--line);
+    transition: border-color 0.3s ease;
+  }
+  .cmd:first-child { border-top: 1px solid var(--line); }
+  .cmd:hover { border-bottom-color: rgba(86, 224, 192, 0.35); }
+  .cmd dt {
+    font-family: var(--mono);
     font-size: 13.5px;
-  }
-  td {
-    padding: 9px 0;
-    border-bottom: 1px solid var(--border);
-    vertical-align: top;
-  }
-  td:first-child {
-    white-space: nowrap;
-    padding-right: 32px;
     color: var(--fg);
+    white-space: nowrap;
   }
-  td:last-child { color: var(--fg-dim); }
-  tr:last-child td { border-bottom: 0; }
+  .cmd dt::before { content: "$ "; color: var(--aqua-dim); }
+  .cmd dd { font-size: 14.5px; color: var(--dim); }
 
-  /* footer */
+  /* ---------- footer ---------- */
   footer {
-    margin-top: 88px;
-    border-top: 1px solid var(--border);
-    padding: 28px 0 48px;
+    position: relative;
+    z-index: 2;
+    margin-top: clamp(80px, 13vh, 160px);
+    padding: 0 var(--pad);
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .foot-top {
+    max-width: 1320px;
+    margin: 0 auto;
+    border-top: 1px solid var(--line);
+    padding: 36px 0 0;
     display: flex;
     justify-content: space-between;
-    gap: 16px;
+    align-items: baseline;
+    gap: 24px;
     flex-wrap: wrap;
-    font-size: 12.5px;
-    color: var(--fg-faint);
   }
-  footer a { color: var(--fg-faint); text-decoration: none; }
-  footer a:hover { color: var(--accent); }
-  .foot-links { display: flex; gap: 20px; }
+  .foot-tag {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--dim);
+  }
+  .foot-tag .serif { color: var(--aqua); font-size: 1.2em; }
+  .foot-links { display: flex; gap: 26px; }
+  .foot-links a {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--faint);
+    text-decoration: none;
+    transition: color 0.25s ease;
+  }
+  .foot-links a:hover { color: var(--aqua); }
+  .foot-word {
+    display: block;
+    text-align: center;
+    font-weight: 500;
+    font-size: clamp(88px, 19vw, 290px);
+    line-height: 0.86;
+    letter-spacing: -0.045em;
+    margin-top: clamp(28px, 5vh, 56px);
+    transform: translateY(0.16em);
+    background: linear-gradient(rgba(86, 224, 192, 0.32), rgba(86, 224, 192, 0.02));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    user-select: none;
+  }
 
-  @media (max-width: 640px) {
-    body { font-size: 14px; }
-    .hero { padding-top: 36px; }
-    section { padding-top: 56px; }
+  /* ---------- reveal helpers (JS sets initial state) ---------- */
+  .will-reveal { will-change: transform, opacity; }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 900px) {
+    .config-grid { grid-template-columns: 1fr; }
+    .shot-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 720px) {
     .platgrid { grid-template-columns: 1fr; }
-    .install { flex-direction: column; }
-    .install button { border-left: 0; border-top: 1px solid var(--border); padding: 10px; }
-    td:first-child { padding-right: 16px; white-space: normal; }
+    .cmd { grid-template-columns: 1fr; gap: 4px; padding: 14px 0; }
+    .cmd dt { white-space: normal; }
+    .install { display: flex; flex-direction: column; }
+    .install button { border-left: 0; border-top: 1px solid var(--line); padding: 11px; }
+    .scroll-hint { display: none; }
+    h1 { max-width: 12ch; }
+    .term { font-size: 12px; padding: 16px 18px 20px; }
+    #term-shell { min-height: 224px; }
   }
 </style>
 </head>
 <body>
 
-<div class="wrap">
-
-<header>
+<nav>
   <a class="brand" href="./">lagoon<b>_</b></a>
-  <nav class="top">
+  <div class="nav-links">
     <a href="lagoon-docs.html">docs</a>
     <a href="https://github.com/imraghavojha/lagoon">github</a>
-  </nav>
+  </div>
+</nav>
+
+<header class="hero">
+  <canvas id="water" aria-hidden="true"></canvas>
+  <div class="hero-inner">
+    <p class="hero-eyebrow will-reveal">NO DAEMONS · NO ROOT · NO DRIFT</p>
+    <h1>
+      <span class="line"><span>Dev environments,</span></span>
+      <span class="line"><span><em class="serif">reproduced.</em></span></span>
+    </h1>
+    <p class="hero-sub will-reveal">
+      One committed config file. Isolated shells and service stacks built from pinned
+      <a href="https://nixos.org">Nix</a> packages on Linux, or booted as lightweight VMs via
+      <a href="https://github.com/apple/container">apple/container</a> on macOS — warm starts
+      in about a second. Docker export when you need it.
+    </p>
+    <div class="install will-reveal">
+      <pre><span class="c"># macOS: brew install container &amp;&amp; container system start</span>
+<span class="p">$</span> curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh | bash</pre>
+      <button onclick="navigator.clipboard.writeText('curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh | bash'); this.textContent='copied'; setTimeout(()=>this.textContent='copy',1600)">copy</button>
+    </div>
+    <p class="platforms will-reveal">linux arm64/amd64 · macos 15+ apple silicon</p>
+  </div>
+  <span class="scroll-hint">SCROLL</span>
 </header>
 
 <main>
 
-<div class="hero">
-  <h1>Fast, reproducible dev environments<span class="a">.</span></h1>
-  <p class="tagline">
-    One committed config file. Isolated shells and service stacks built from pinned
-    <a href="https://nixos.org">Nix</a> packages on Linux, or booted as lightweight VMs via
-    <a href="https://github.com/apple/container">apple/container</a> on macOS — warm starts in about a second.
-    No daemon. No root. Docker export when you need it.
-  </p>
-
-  <div class="install">
-    <pre><span class="c"># macOS: brew install container &amp;&amp; container system start</span>
-curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh | bash</pre>
-    <button onclick="navigator.clipboard.writeText('curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh | bash'); this.textContent='copied'; setTimeout(()=>this.textContent='copy',1600)">copy</button>
-  </div>
-  <p class="platforms">linux arm64/amd64 · macos 15+ apple silicon</p>
-
-  <figure class="shot">
-    <img src="https://raw.githubusercontent.com/imraghavojha/lagoon/main/assets/shell.gif" alt="lagoon shell: entering an isolated environment on macOS, running python and uname inside a Linux VM" width="1100" height="640" loading="eager">
-    <figcaption><b>lagoon shell</b> on a Mac — a Linux environment, booted in about a second. Recorded with vhs; every capture on this page is the real tool.</figcaption>
+<section id="shell">
+  <figure class="shot term-narrow" style="margin-inline:auto" data-reveal>
+    <div class="shot-frame">
+      <div class="shot-bar"><i></i><i></i><i></i><em>lagoon shell</em></div>
+      <div class="term" id="term-shell">
+        <div class="tl"><span class="tp">$ </span><span class="typed">lagoon shell</span></div>
+        <div class="tl" data-wait="700"><span class="tg">✓</span> vm ready <span class="td">— 0.9s</span></div>
+        <div class="tl"><span class="tp">[lagoon] /workspace $ </span><span class="typed">uname -s</span></div>
+        <div class="tl"><span class="tw">Linux</span></div>
+        <div class="tl"><span class="tp">[lagoon] /workspace $ </span><span class="typed">python3 --version</span></div>
+        <div class="tl"><span class="tw">Python 3.12.4</span></div>
+        <div class="tl"><span class="tp">[lagoon] /workspace $ </span><span class="typed">exit</span></div>
+        <div class="tl"><span class="tp">$ </span><span class="typed"></span></div>
+      </div>
+    </div>
+    <figcaption><b>lagoon shell</b> on a Mac — an isolated Linux environment, booted in about a second. Exit, and nothing persists.</figcaption>
   </figure>
-</div>
+</section>
 
 <section id="services">
-  <h2>services</h2>
-  <p class="prose">
+  <div class="sec-head" data-reveal>
+    <span class="sec-num">(01)</span>
+    <h2>Services, <em class="serif">simply.</em></h2>
+  </div>
+  <p class="prose" data-reveal>
     Declare services in <code>lagoon.toml</code> and run <strong>lagoon up</strong>.
     Ports are inferred from the commands and published to localhost, logs stream into one
     dashboard, and <code>q</code> tears everything down. It covers the
     <code>docker compose up</code> workflow for small projects.
   </p>
-  <figure class="shot">
-    <img src="https://raw.githubusercontent.com/imraghavojha/lagoon/main/assets/up.png" alt="lagoon up dashboard showing a running service with published port and live request logs" width="825" height="540" loading="lazy">
-    <figcaption><b>lagoon up</b> — live status, published ports, and real request logs.</figcaption>
-  </figure>
-  <figure class="shot">
-    <img src="https://raw.githubusercontent.com/imraghavojha/lagoon/main/assets/ps.png" alt="lagoon ps showing machine info, cache state, configured and running services" width="1100" height="518" loading="lazy">
-    <figcaption><b>lagoon ps</b> — machine, cache, and everything running for the project.</figcaption>
-  </figure>
+  <div class="shot-grid" style="margin-top: clamp(32px, 5vh, 52px);">
+    <figure class="shot" style="margin-top:0" data-reveal>
+      <div class="shot-frame">
+        <div class="shot-bar"><i></i><i></i><i></i><em>lagoon up</em></div>
+        <div class="term">
+          <div class="tl"><span class="tw">lagoon up</span>   <span class="td">2 services · network on</span></div>
+          <div class="tl"> </div>
+          <div class="tl"><span class="dot"></span> <span class="tw">web</span>  <span class="td">node server.js</span>       <span class="tb">→ localhost:3000</span></div>
+          <div class="tl"><span class="dot"></span> <span class="tw">api</span>  <span class="td">python3 manage.py …</span>  <span class="tb">→ localhost:8000</span></div>
+          <div class="tl"> </div>
+          <div class="uplog">
+            <div class="tl"><span class="tg">web</span> <span class="td">│</span> listening on :3000</div>
+            <div class="tl"><span class="tb">api</span> <span class="td">│</span> dev server at 0.0.0.0:8000</div>
+            <div class="tl"><span class="tg">web</span> <span class="td">│</span> GET / 200 <span class="td">0.8ms</span></div>
+            <div class="tl"><span class="tb">api</span> <span class="td">│</span> GET /api/health 200 <span class="td">1.2ms</span></div>
+          </div>
+          <div class="tl"> </div>
+          <div class="tl"><span class="td">[q] stop everything</span></div>
+        </div>
+      </div>
+      <figcaption><b>lagoon up</b> — live status, published ports, and request logs in one dashboard.</figcaption>
+    </figure>
+    <figure class="shot" style="margin-top:0" data-reveal>
+      <div class="shot-frame">
+        <div class="shot-bar"><i></i><i></i><i></i><em>lagoon ps</em></div>
+        <div class="term">
+          <div class="tl"><span class="tp">$ </span><span class="tw">lagoon ps</span></div>
+          <div class="tl"><span class="td">project </span>  <span class="tw">myproject</span></div>
+          <div class="tl"><span class="td">packages</span>  python3  nodejs</div>
+          <div class="tl"><span class="td">profile </span>  minimal</div>
+          <div class="tl"><span class="td">cached  </span>  <span class="tg">yes</span></div>
+          <div class="tl"> </div>
+          <div class="tl"><span class="td">PID    MEMORY    PROJECT    PACKAGES</span></div>
+          <div class="tl"><span class="tw">12345</span>  42.1 MB   myproject  python3 nodejs</div>
+        </div>
+      </div>
+      <figcaption><b>lagoon ps</b> — machine, cache, and everything running for the project.</figcaption>
+    </figure>
+  </div>
 </section>
 
 <section id="setup">
-  <h2>setup</h2>
-  <p class="prose">
+  <div class="sec-head" data-reveal>
+    <span class="sec-num">(02)</span>
+    <h2>Setup in <em class="serif">seconds.</em></h2>
+  </div>
+  <p class="prose" data-reveal>
     <strong>lagoon init</strong> detects your hardware, suggests sane defaults, and previews
     the config before writing it. Presets for Python, Node, Go, llama.cpp, and whisper.cpp.
   </p>
-  <figure class="shot">
-    <img src="https://raw.githubusercontent.com/imraghavojha/lagoon/main/assets/init.gif" alt="lagoon init wizard selecting an intent and preset, previewing and writing lagoon.toml" width="1100" height="720" loading="lazy">
+  <figure class="shot term-narrow" data-reveal>
+    <div class="shot-frame">
+      <div class="shot-bar"><i></i><i></i><i></i><em>lagoon init</em></div>
+      <div class="term">
+        <div class="tl"><span class="tp">$ </span><span class="tw">lagoon init</span></div>
+        <div class="tl"><span class="tg">?</span> what are you building   <span class="td">›</span> <span class="tw">python api</span></div>
+        <div class="tl"><span class="tg">?</span> preset                  <span class="td">›</span> <span class="tw">python 3.12 + uv</span></div>
+        <div class="tl"><span class="tg">?</span> network access          <span class="td">›</span> <span class="tw">yes</span></div>
+        <div class="tl"><span class="td">  verifying on nixpkgs…</span>   python311 <span class="tg">✓</span>  uv <span class="tg">✓</span></div>
+        <div class="tl"> </div>
+        <div class="tl">preview <span class="tb">lagoon.toml</span> — write it? <span class="td">[Y/n]</span> <span class="tw">y</span></div>
+        <div class="tl"><span class="tg">✓</span> wrote lagoon.toml <span class="td">— commit it</span></div>
+      </div>
+    </div>
     <figcaption><b>lagoon init</b> — pick an intent and preset, preview, write.</figcaption>
   </figure>
 </section>
 
 <section id="how">
-  <h2>how it works</h2>
-  <p class="prose">
+  <div class="sec-head" data-reveal>
+    <span class="sec-num">(03)</span>
+    <h2>One file, the lightest runtime <em class="serif">everywhere.</em></h2>
+  </div>
+  <p class="prose" data-reveal>
     The same <code>lagoon.toml</code> resolves through the lightest runtime each platform has.
   </p>
   <div class="platgrid">
-    <div class="plat">
-      <h3>linux <span>· nix + bubblewrap</span></h3>
+    <div class="plat" data-reveal>
+      <p class="os">LINUX</p>
+      <h3>Nix + bubblewrap</h3>
       <p>Packages come from a pinned nixpkgs commit, so the environment is identical on every machine and stays identical over time.</p>
       <p>Shells run in a bubblewrap sandbox: empty filesystem, project at <code>/workspace</code>, ephemeral home, network only if the profile allows it. No daemon — nothing runs when you're not inside.</p>
     </div>
-    <div class="plat">
-      <h3>macos <span>· apple/container</span></h3>
+    <div class="plat" data-reveal>
+      <p class="os">MACOS</p>
+      <h3>apple/container</h3>
       <p>Each shell and service boots in its own lightweight VM. Warm starts land in about a second on Apple Silicon.</p>
       <p>The preset maps to a small official image (<code>python:3.12-slim</code>, <code>node:22-slim</code>, …), overridable with <code>image = "…"</code>. Docker Desktop works as an automatic fallback.</p>
     </div>
@@ -335,9 +659,13 @@ curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh
 </section>
 
 <section id="config">
-  <h2>config</h2>
-  <p class="prose">One file in your project root. Commit it.</p>
-  <pre class="code"><span class="k">packages</span> = [<span class="s">"python311"</span>, <span class="s">"uv"</span>]
+  <div class="sec-head" data-reveal>
+    <span class="sec-num">(04)</span>
+    <h2>The whole config <em class="serif">fits on a postcard.</em></h2>
+  </div>
+  <div class="config-grid">
+    <p class="prose" data-reveal>One file in your project root. <strong>Commit it</strong> — every machine that clones the repo gets the same environment, today and a year from now.</p>
+    <pre class="code" data-reveal><span class="k">packages</span> = [<span class="s">"python311"</span>, <span class="s">"uv"</span>]
 
 <span class="c"># pinned nixpkgs revision — set by lagoon init, used on linux</span>
 <span class="k">nixpkgs_commit</span> = <span class="s">"26eaeac4e409d7b5a6bf6f90a2a2dc223c78d915"</span>
@@ -350,36 +678,238 @@ curl -fsSL https://raw.githubusercontent.com/imraghavojha/lagoon/main/install.sh
 
 [<span class="k">up</span>]
 <span class="k">web</span> = <span class="s">"python3 -m http.server 8000"</span></pre>
+  </div>
 </section>
 
 <section id="commands">
-  <h2>commands</h2>
-  <table>
-    <tr><td>lagoon init</td><td>create lagoon.toml interactively — hardware detection, presets, live nixpkgs search</td></tr>
-    <tr><td>lagoon shell</td><td>enter the sandboxed environment</td></tr>
-    <tr><td>lagoon run &lt;cmd&gt;</td><td>run a one-off command in the sandbox</td></tr>
-    <tr><td>lagoon up</td><td>start [up] services with a live dashboard</td></tr>
-    <tr><td>lagoon ps</td><td>machine, cache, and running processes</td></tr>
-    <tr><td>lagoon watch &lt;cmd&gt;</td><td>re-run a command on file changes</td></tr>
-    <tr><td>lagoon check</td><td>validate the config and verify packages exist</td></tr>
-    <tr><td>lagoon save / load</td><td>move environments to offline machines as one file</td></tr>
-    <tr><td>lagoon docker &lt;file&gt;</td><td>export a docker-compatible image tar</td></tr>
-    <tr><td>lagoon rm</td><td>remove the project's cached environment</td></tr>
-  </table>
+  <div class="sec-head" data-reveal>
+    <span class="sec-num">(05)</span>
+    <h2>Ten commands, <em class="serif">no flags to memorise.</em></h2>
+  </div>
+  <dl class="cmds">
+    <div class="cmd" data-reveal><dt>lagoon init</dt><dd>create lagoon.toml interactively — hardware detection, presets, live nixpkgs search</dd></div>
+    <div class="cmd" data-reveal><dt>lagoon shell</dt><dd>enter the sandboxed environment</dd></div>
+    <div class="cmd" data-reveal><dt>lagoon run &lt;cmd&gt;</dt><dd>run a one-off command in the sandbox</dd></div>
+    <div class="cmd" data-reveal><dt>lagoon up</dt><dd>start [up] services with a live dashboard</dd></div>
+    <div class="cmd" data-reveal><dt>lagoon ps</dt><dd>machine, cache, and running processes</dd></div>
+    <div class="cmd" data-reveal><dt>lagoon watch &lt;cmd&gt;</dt><dd>re-run a command on file changes</dd></div>
+    <div class="cmd" data-reveal><dt>lagoon check</dt><dd>validate the config and verify packages exist</dd></div>
+    <div class="cmd" data-reveal><dt>lagoon save / load</dt><dd>move environments to offline machines as one file</dd></div>
+    <div class="cmd" data-reveal><dt>lagoon docker &lt;file&gt;</dt><dd>export a docker-compatible image tar</dd></div>
+    <div class="cmd" data-reveal><dt>lagoon rm</dt><dd>remove the project's cached environment</dd></div>
+  </dl>
 </section>
 
 </main>
 
 <footer>
-  <span>lagoon — no daemons, no root, no drift</span>
-  <div class="foot-links">
-    <a href="https://github.com/imraghavojha/lagoon">github</a>
-    <a href="lagoon-docs.html">docs</a>
-    <a href="https://search.nixos.org/packages">nixpkgs</a>
+  <div class="foot-top">
+    <p class="foot-tag">no daemons, no root, <em class="serif">no drift.</em></p>
+    <div class="foot-links">
+      <a href="https://github.com/imraghavojha/lagoon">github</a>
+      <a href="lagoon-docs.html">docs</a>
+      <a href="https://search.nixos.org/packages">nixpkgs</a>
+    </div>
   </div>
+  <span class="foot-word" aria-hidden="true">lagoon</span>
 </footer>
 
-</div>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script>
+(function () {
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---------- water shader (plain WebGL, falls back to CSS gradient) ---------- */
+  var canvas = document.getElementById("water");
+  var gl = canvas.getContext("webgl", { alpha: true, antialias: false });
+
+  if (gl) {
+    var vsrc = "attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}";
+    var fsrc = [
+      "precision mediump float;",
+      "uniform vec2 r;uniform float t;",
+      // value noise + fbm
+      "float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}",
+      "float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);",
+      " return mix(mix(h(i),h(i+vec2(1.,0.)),f.x),mix(h(i+vec2(0.,1.)),h(i+vec2(1.,1.)),f.x),f.y);}",
+      "float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*n(p);p*=2.05;a*=.5;}return v;}",
+      "void main(){",
+      " vec2 uv=gl_FragCoord.xy/r;",
+      " vec2 q=uv*vec2(r.x/r.y,1.);",
+      " float T=t*.045;",
+      // slow drifting caustic layers
+      " float w1=fbm(q*2.1+vec2(T*.7,-T*.4));",
+      " float w2=fbm(q*3.3-vec2(T*.5,T*.6)+w1);",
+      " float caustic=smoothstep(.42,.78,w2)*.5+w1*.3;",
+      // deep water palette
+      " vec3 deep=vec3(.027,.043,.055);",
+      " vec3 mid=vec3(.05,.13,.125);",
+      " vec3 glow=vec3(.21,.62,.53);",
+      " float depth=1.-uv.y;",
+      " float pool=smoothstep(1.35,.1,distance(uv*vec2(r.x/r.y,1.),vec2(.72*r.x/r.y,-.12)));",
+      " vec3 col=mix(deep,mid,depth*.8+caustic*.25);",
+      " col+=glow*caustic*pool*.34;",
+      " col+=glow*pool*.05;",
+      " gl_FragColor=vec4(col,1.);",
+      "}"
+    ].join("\n");
+
+    function sh(type, src) {
+      var s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null;
+    }
+    var vs = sh(gl.VERTEX_SHADER, vsrc), fs = sh(gl.FRAGMENT_SHADER, fsrc);
+    if (vs && fs) {
+      var prog = gl.createProgram();
+      gl.attachShader(prog, vs);
+      gl.attachShader(prog, fs);
+      gl.linkProgram(prog);
+      gl.useProgram(prog);
+      var buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+      var loc = gl.getAttribLocation(prog, "p");
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+      var uR = gl.getUniformLocation(prog, "r");
+      var uT = gl.getUniformLocation(prog, "t");
+
+      var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      function resize() {
+        var w = canvas.clientWidth, hgt = canvas.clientHeight;
+        canvas.width = Math.round(w * dpr);
+        canvas.height = Math.round(hgt * dpr);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.uniform2f(uR, canvas.width, canvas.height);
+      }
+      resize();
+      window.addEventListener("resize", resize);
+
+      var visible = true;
+      new IntersectionObserver(function (e) { visible = e[0].isIntersecting; })
+        .observe(canvas);
+
+      var start = performance.now();
+      function frame(now) {
+        if (visible) {
+          gl.uniform1f(uT, (now - start) / 1000);
+          gl.drawArrays(gl.TRIANGLES, 0, 3);
+        }
+        if (!reduced) requestAnimationFrame(frame);
+      }
+      // reduced motion: render a single still frame
+      requestAnimationFrame(frame);
+    }
+  }
+
+  /* ---------- shell terminal typing loop ---------- */
+  if (!reduced) {
+    var lines = Array.prototype.slice.call(document.querySelectorAll("#term-shell .tl"));
+    if (lines.length) {
+      var script = lines.map(function (l) {
+        var t = l.querySelector(".typed");
+        return { el: l, typed: t, text: t ? t.textContent : null, wait: +l.getAttribute("data-wait") || 160 };
+      });
+      var caret = document.createElement("span");
+      caret.className = "caret";
+      var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+
+      (async function loop() {
+        for (;;) {
+          script.forEach(function (s) {
+            s.el.style.visibility = "hidden";
+            if (s.typed) s.typed.textContent = "";
+          });
+          await sleep(600);
+          for (var i = 0; i < script.length; i++) {
+            var s = script[i];
+            if (s.typed) {
+              s.el.style.visibility = "visible";
+              s.typed.after(caret);
+              await sleep(380);
+              for (var c = 0; c < s.text.length; c++) {
+                s.typed.textContent += s.text[c];
+                await sleep(40 + Math.random() * 45);
+              }
+              await sleep(260);
+            } else {
+              await sleep(s.wait);
+              s.el.style.visibility = "visible";
+            }
+          }
+          await sleep(5200);
+        }
+      })();
+    }
+
+    /* ---------- lagoon up rotating request log ---------- */
+    var logEls = Array.prototype.slice.call(document.querySelectorAll(".uplog .tl"));
+    if (logEls.length) {
+      var pool = [
+        '<span class="tg">web</span> <span class="td">│</span> listening on :3000',
+        '<span class="tb">api</span> <span class="td">│</span> dev server at 0.0.0.0:8000',
+        '<span class="tg">web</span> <span class="td">│</span> GET / 200 <span class="td">0.8ms</span>',
+        '<span class="tb">api</span> <span class="td">│</span> GET /api/health 200 <span class="td">1.2ms</span>',
+        '<span class="tg">web</span> <span class="td">│</span> GET /assets/app.js 200 <span class="td">1.1ms</span>',
+        '<span class="tb">api</span> <span class="td">│</span> POST /api/items 201 <span class="td">3.4ms</span>',
+        '<span class="tg">web</span> <span class="td">│</span> GET /favicon.svg 200 <span class="td">0.3ms</span>',
+        '<span class="tb">api</span> <span class="td">│</span> GET /api/items 200 <span class="td">2.1ms</span>'
+      ];
+      var head = logEls.length;
+      setInterval(function () {
+        for (var i = 0; i < logEls.length; i++) {
+          logEls[i].innerHTML = pool[(head + i) % pool.length];
+        }
+        var last = logEls[logEls.length - 1];
+        last.style.opacity = 0;
+        requestAnimationFrame(function () { last.style.opacity = 1; });
+        head = (head + 1) % pool.length;
+      }, 1900);
+    }
+  }
+
+  /* ---------- gsap reveals ---------- */
+  if (!window.gsap || reduced) return;
+  gsap.registerPlugin(ScrollTrigger);
+
+  gsap.from(".line > span", {
+    yPercent: 115,
+    duration: 1.1,
+    ease: "power4.out",
+    stagger: 0.12,
+    delay: 0.15
+  });
+  gsap.from(".will-reveal", {
+    y: 26,
+    autoAlpha: 0,
+    duration: 0.9,
+    ease: "power3.out",
+    stagger: 0.09,
+    delay: 0.55
+  });
+
+  gsap.utils.toArray("[data-reveal]").forEach(function (el) {
+    gsap.from(el, {
+      y: 36,
+      autoAlpha: 0,
+      duration: 0.9,
+      ease: "power3.out",
+      scrollTrigger: { trigger: el, start: "top 88%" }
+    });
+  });
+
+  gsap.from(".foot-word", {
+    yPercent: 35,
+    autoAlpha: 0,
+    duration: 1.2,
+    ease: "power3.out",
+    scrollTrigger: { trigger: "footer", start: "top 85%" }
+  });
+})();
+</script>
 
 </body>
 </html>
