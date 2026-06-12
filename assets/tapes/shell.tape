@@ -4,7 +4,7 @@ Output assets/shell.gif
 Set Shell bash
 Set FontSize 22
 Set Width 1100
-Set Height 640
+Set Height 460
 Set Padding 24
 Set Theme "Catppuccin Mocha"
 Set TypingSpeed 50ms
